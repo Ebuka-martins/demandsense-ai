@@ -1,0 +1,60 @@
+{
+  "name": "demandsense-ai",
+  "version": "1.0.0",
+  "description": "AI-powered supply chain demand forecasting with neon pink/red aesthetics",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon --ignore 'uploads/' server/server.js",
+    "clean": "rm -rf node_modules uploads",
+    "setup": "npm install && mkdir -p uploads assets/icons assets/favicon assets/src server/routes/api data/sample-data data/mock tests",
+    "test": "node tests/forecast.test.js && node tests/inventory.test.js",
+    "test:forecast": "node tests/forecast.test.js",
+    "test:inventory": "node tests/inventory.test.js",
+    "generate-icons": "node scripts/generate-icons.js",
+    "postinstall": "mkdir -p uploads"
+  },
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.0.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^7.0.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.0",
+    "jspdf-autotable": "^5.0.7",
+    "multer": "^2.0.0",
+    "uuid": "^9.0.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz",
+    "chart.js": "^4.4.0",
+    "moment": "^2.29.4",
+    "simple-statistics": "^7.8.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  },
+  "keywords": [
+    "supply-chain",
+    "demand-forecasting",
+    "inventory-optimization",
+    "ai",
+    "groq",
+    "neon",
+    "pwa"
+  ],
+  "author": "DemandSense AI Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/demandsense-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-repo/demandsense-ai/issues"
+  },
+  "homepage": "https://github.com/your-repo/demandsense-ai#readme"
+}

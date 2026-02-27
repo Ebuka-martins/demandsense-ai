@@ -1,0 +1,184 @@
+{
+  "economic": {
+    "consumerConfidence": 0.78,
+    "unemployment": 0.035,
+    "gdpGrowth": 0.021,
+    "inflation": 0.032,
+    "interestRate": 0.0525
+  },
+  "holidays": [
+    {
+      "name": "New Year's Day",
+      "date": "2025-01-01",
+      "impact": "high",
+      "category": "national"
+    },
+    {
+      "name": "Valentine's Day",
+      "date": "2025-02-14",
+      "impact": "medium",
+      "category": "retail"
+    },
+    {
+      "name": "Easter Sunday",
+      "date": "2025-03-31",
+      "impact": "medium",
+      "category": "retail"
+    },
+    {
+      "name": "Mother's Day",
+      "date": "2025-05-12",
+      "impact": "high",
+      "category": "retail"
+    },
+    {
+      "name": "Father's Day",
+      "date": "2025-06-16",
+      "impact": "high",
+      "category": "retail"
+    },
+    {
+      "name": "Independence Day",
+      "date": "2025-07-04",
+      "impact": "medium",
+      "category": "national"
+    },
+    {
+      "name": "Labor Day",
+      "date": "2025-09-01",
+      "impact": "medium",
+      "category": "national"
+    },
+    {
+      "name": "Halloween",
+      "date": "2025-10-31",
+      "impact": "medium",
+      "category": "retail"
+    },
+    {
+      "name": "Black Friday",
+      "date": "2025-11-28",
+      "impact": "high",
+      "category": "retail"
+    },
+    {
+      "name": "Cyber Monday",
+      "date": "2025-12-01",
+      "impact": "high",
+      "category": "retail"
+    },
+    {
+      "name": "Christmas",
+      "date": "2025-12-25",
+      "impact": "high",
+      "category": "national"
+    },
+    {
+      "name": "New Year's Eve",
+      "date": "2025-12-31",
+      "impact": "medium",
+      "category": "national"
+    }
+  ],
+  "weather": {
+    "regions": [
+      {
+        "region": "North",
+        "season": "Winter",
+        "temperature": {
+          "avg": 32,
+          "min": 20,
+          "max": 45
+        },
+        "precipitation": 0.45,
+        "weatherEvents": [
+          "Snowstorms possible in January",
+          "Cold snap in February"
+        ]
+      },
+      {
+        "region": "South",
+        "season": "Mild",
+        "temperature": {
+          "avg": 65,
+          "min": 50,
+          "max": 80
+        },
+        "precipitation": 0.25,
+        "weatherEvents": [
+          "Occasional rain in March"
+        ]
+      },
+      {
+        "region": "East",
+        "season": "Cold",
+        "temperature": {
+          "avg": 28,
+          "min": 15,
+          "max": 40
+        },
+        "precipitation": 0.55,
+        "weatherEvents": [
+          "Nor'easters possible",
+          "Heavy snowfall risk"
+        ]
+      },
+      {
+        "region": "West",
+        "season": "Variable",
+        "temperature": {
+          "avg": 55,
+          "min": 40,
+          "max": 70
+        },
+        "precipitation": 0.15,
+        "weatherEvents": [
+          "Dry conditions",
+          "Wildfire risk in fall"
+        ]
+      }
+    ]
+  },
+  "trends": {
+    "overall": "upward",
+    "growthRate": 0.023,
+    "categories": {
+      "Electronics": {
+        "trend": "upward",
+        "growthRate": 0.035
+      },
+      "Accessories": {
+        "trend": "upward",
+        "growthRate": 0.018
+      },
+      "Apparel": {
+        "trend": "stable",
+        "growthRate": 0.005
+      },
+      "Home Goods": {
+        "trend": "downward",
+        "growthRate": -0.012
+      }
+    }
+  },
+  "competitor": {
+    "marketShare": 0.082,
+    "competitors": [
+      {
+        "name": "TechGiant",
+        "marketShare": 0.124,
+        "aggressiveness": "high"
+      },
+      {
+        "name": "SupplyMaster",
+        "marketShare": 0.093,
+        "aggressiveness": "medium"
+      },
+      {
+        "name": "GlobalDistributors",
+        "marketShare": 0.071,
+        "aggressiveness": "low"
+      }
+    ]
+  }
+}

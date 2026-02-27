@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DemandSense AI - Login</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#ff006e">
+    
+    <style>
+        /* Neon Pink/Red Theme */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 15px;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(255, 0, 110, 0.1) 0%, transparent 30%),
+                radial-gradient(circle at 90% 80%, rgba(255, 77, 109, 0.1) 0%, transparent 30%);
+        }
+
+        .login-wrapper {
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .login-card {
+            background: #14141f;
+            border-radius: 24px;
+            padding: 30px 25px;
+            width: 100%;
+            position: relative;
+            border: 1px solid rgba(255, 0, 110, 0.3);
+            box-shadow: 0 0 30px rgba(255, 0, 110, 0.2);
+        }
+
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(135deg, #ff006e, #ff4d6d);
+            border-radius: 26px;
+            z-index: -1;
+            opacity: 0.5;
+            animation: borderPulse 3s infinite;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .login-header i {
+            font-size: 55px;
+            color: #ff006e;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 0, 110, 0.5);
+            animation: glowPulse 2s infinite;
+        }
+
+        .login-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff006e, #ff4d6d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .login-header p {
+            color: #a0a0c0;
+            font-size: 14px;
+        }
+
+        .tab-container {
+            display: flex;
+            margin-bottom: 25px;
+            border-bottom: 2px solid rgba(255, 0, 110, 0.3);
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #a0a0c0;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #ff006e;
+            border-bottom: 2px solid #ff006e;
+            margin-bottom: -2px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #e0e0ff;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #ff006e;
+            font-size: 16px;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 14px 14px 14px 45px;
+            background: #1f1f2e;
+            border: 1px solid rgba(255, 0, 110, 0.3);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .input-wrapper input:focus {
+            outline: none;
+            border-color: #ff006e;
+            box-shadow: 0 0 15px rgba(255, 0, 110, 0.3);
+        }
+
+        .input-wrapper input::placeholder {
+            color: #666680;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #ff006e;
+            padding: 5px;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #ff006e, #ff4d6d);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-login:hover::before {
+            left: 100%;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(255, 0, 110, 0.5);
+        }
+
+        .btn-login:active {
+            transform: scale(0.98);
+        }
+
+        .error-message {
+            background: rgba(255, 68, 68, 0.1);
+            color: #ff4444;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            border: 1px solid rgba(255, 68, 68, 0.3);
+        }
+
+        .error-message.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .success-message {
+            background: rgba(0, 255, 136, 0.1);
+            color: #00ff88;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .success-message.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { text-shadow: 0 0 20px rgba(255, 0, 110, 0.5); }
+            50% { text-shadow: 0 0 40px rgba(255, 0, 110, 0.8); }
+        }
+
+        @keyframes borderPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 20px;
+            }
+            .login-header i {
+                font-size: 45px;
+            }
+            .login-header h1 {
+                font-size: 24px;
+            }
+            .tab {
+                padding: 10px;
+                font-size: 15px;
+            }
+            .input-wrapper input {
+                padding: 12px 12px 12px 40px;
+            }
+            .btn-login {
+                padding: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fas fa-chart-line"></i>
+                <h1>DemandSense AI</h1>
+                <p>Supply Chain Demand Forecaster</p>
+            </div>
+
+            <div class="tab-container">
+                <div class="tab active" id="loginTab">Login</div>
+                <div class="tab" id="signupTab">Sign Up</div>
+            </div>
+
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <div class="form-group">
+                    <label>Email</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="loginEmail" placeholder="Enter your email">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="loginPassword" placeholder="Enter your password">
+                        <span class="password-toggle" id="toggleLoginPassword">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <button class="btn-login" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+            </div>
+
+            <!-- Signup Form -->
+            <div id="signupForm" style="display: none;">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="signupName" placeholder="Enter your full name">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="signupEmail" placeholder="Enter your email">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="signupPassword" placeholder="Create a password (min. 6 characters)">
+                        <span class="password-toggle" id="toggleSignupPassword">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="signupConfirmPassword" placeholder="Confirm your password">
+                        <span class="password-toggle" id="toggleConfirmPassword">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <button class="btn-login" id="signupBtn">
+                    <i class="fas fa-user-plus"></i> Sign Up
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            console.log('Login script starting...');
+
+            // DOM Elements
+            const loginTab = document.getElementById('loginTab');
+            const signupTab = document.getElementById('signupTab');
+            const loginForm = document.getElementById('loginForm');
+            const signupForm = document.getElementById('signupForm');
+            const errorDiv = document.getElementById('errorMessage');
+            const successDiv = document.getElementById('successMessage');
+
+            // Tab switching
+            loginTab.addEventListener('click', function() {
+                loginTab.classList.add('active');
+                signupTab.classList.remove('active');
+                loginForm.style.display = 'block';
+                signupForm.style.display = 'none';
+            });
+
+            signupTab.addEventListener('click', function() {
+                signupTab.classList.add('active');
+                loginTab.classList.remove('active');
+                signupForm.style.display = 'block';
+                loginForm.style.display = 'none';
+            });
+
+            // Password toggle
+            function togglePassword(btnId, inputId) {
+                const btn = document.getElementById(btnId);
+                const input = document.getElementById(inputId);
+                if (btn && input) {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const icon = this.querySelector('i');
+                        if (input.type === 'password') {
+                            input.type = 'text';
+                            icon.classList.remove('fa-eye');
+                            icon.classList.add('fa-eye-slash');
+                        } else {
+                            input.type = 'password';
+                            icon.classList.remove('fa-eye-slash');
+                            icon.classList.add('fa-eye');
+                        }
+                    });
+                }
+            }
+
+            togglePassword('toggleLoginPassword', 'loginPassword');
+            togglePassword('toggleSignupPassword', 'signupPassword');
+            togglePassword('toggleConfirmPassword', 'signupConfirmPassword');
+
+            // Show message functions
+            function showError(msg) {
+                console.log('Error:', msg);
+                if (errorDiv) {
+                    errorDiv.textContent = msg;
+                    errorDiv.classList.add('show');
+                    setTimeout(() => errorDiv.classList.remove('show'), 5000);
+                } else {
+                    alert(msg);
+                }
+            }
+
+            function showSuccess(msg) {
+                console.log('Success:', msg);
+                if (successDiv) {
+                    successDiv.textContent = msg;
+                    successDiv.classList.add('show');
+                    setTimeout(() => successDiv.classList.remove('show'), 5000);
+                } else {
+                    alert(msg);
+                }
+            }
+
+            // Login handler
+            document.getElementById('loginBtn').addEventListener('click', async function() {
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+
+                if (!email || !password) {
+                    showError('Please fill all fields');
+                    return;
+                }
+
+                showLoading(true);
+
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        localStorage.setItem('authToken', result.token);
+                        localStorage.setItem('currentUser', JSON.stringify(result.user));
+                        showSuccess('Login successful! Redirecting...');
+                        setTimeout(() => window.location.href = '/', 1000);
+                    } else {
+                        showError(result.error || 'Invalid credentials');
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showError('Login failed. Please try again.');
+                } finally {
+                    showLoading(false);
+                }
+            });
+
+            // Signup handler
+            document.getElementById('signupBtn').addEventListener('click', async function() {
+                const name = document.getElementById('signupName').value;
+                const email = document.getElementById('signupEmail').value;
+                const password = document.getElementById('signupPassword').value;
+                const confirm = document.getElementById('signupConfirmPassword').value;
+
+                if (!name || !email || !password || !confirm) {
+                    showError('Please fill all fields');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    showError('Password must be at least 6 characters');
+                    return;
+                }
+
+                if (password !== confirm) {
+                    showError('Passwords do not match');
+                    return;
+                }
+
+                showLoading(true);
+
+                try {
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password, name })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        localStorage.setItem('authToken', result.token);
+                        localStorage.setItem('currentUser', JSON.stringify(result.user));
+                        showSuccess('Account created! Redirecting...');
+                        setTimeout(() => window.location.href = '/', 1000);
+                    } else {
+                        showError(result.error || 'Registration failed');
+                    }
+                } catch (error) {
+                    console.error('Signup error:', error);
+                    showError('Signup failed. Please try again.');
+                } finally {
+                    showLoading(false);
+                }
+            });
+
+            // Check if already logged in
+            if (localStorage.getItem('authToken') && window.location.pathname !== '/') {
+                window.location.href = '/';
+            }
+
+            // Loading indicator
+            function showLoading(show) {
+                const buttons = document.querySelectorAll('.btn-login');
+                buttons.forEach(btn => {
+                    if (show) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                    } else {
+                        btn.disabled = false;
+                        if (btn.id === 'loginBtn') {
+                            btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+                        } else {
+                            btn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
+                        }
+                    }
+                });
+            }
+
+            // Enter key support
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (loginForm.style.display !== 'none') {
+                        document.getElementById('loginBtn').click();
+                    } else {
+                        document.getElementById('signupBtn').click();
+                    }
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

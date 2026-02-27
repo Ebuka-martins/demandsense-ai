@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DemandSense AI - Supply Chain Demand Forecaster</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#ff006e">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Overlay -->
+        <div class="overlay" id="sidebarOverlay"></div>
+        
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <i class="fas fa-chart-line logo-icon"></i>
+                    <h1>DemandSense AI</h1>
+                    <button class="sidebar-close" id="sidebarClose">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <button class="new-analysis-btn" id="newAnalysis">
+                    <i class="fas fa-plus"></i> New Analysis
+                </button>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Upload Section -->
+                <section class="sidebar-section">
+                    <h3><i class="fas fa-file-upload"></i> Upload Sales Data</h3>
+                    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json" style="display: none;">
+                    <label for="fileInput" class="upload-btn" id="uploadBtn">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Choose CSV/Excel</span>
+                    </label>
+                    <div class="file-info">
+                        <p>Supported: CSV, Excel, JSON</p>
+                        <p>Max size: 50MB</p>
+                    </div>
+                </section>
+                
+                <!-- Paste Data Section -->
+                <section class="sidebar-section">
+                    <h3><i class="fas fa-paste"></i> Paste Data</h3>
+                    <div class="paste-container">
+                        <textarea id="dataInput"
+                                  placeholder="Paste CSV data here..."
+                                  rows="4"></textarea>
+                        <button id="analyzePaste" class="analyze-btn">
+                            <i class="fas fa-magic"></i> Analyze
+                        </button>
+                    </div>
+                </section>
+                
+                <!-- Recent Forecasts -->
+                <section class="sidebar-section history-section">
+                    <div class="history-header">
+                        <h3><i class="fas fa-history"></i> Recent Forecasts</h3>
+                        <button id="clearAllHistory" class="clear-history-btn" title="Clear history">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                    <div class="history-list" id="analysisHistory">
+                        <div class="history-empty">
+                            <i class="fas fa-inbox"></i>
+                            <p>No forecasts yet</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            
+            <footer class="sidebar-footer">
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="status-dot online"></span>
+                    <span>Online</span>
+                </div>
+                <div class="app-version">v1.0.0</div>
+            </footer>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="main-header">
+                <div class="header-left">
+                    <button class="menu-toggle" id="menuToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+                <div class="header-center">
+                    <h2><i class="fas fa-robot"></i> DemandSense AI Assistant</h2>
+                </div>
+                <div class="header-right">
+                    <button class="install-btn" id="installBtn" style="display: none;">
+                        <i class="fas fa-download"></i> Install
+                    </button>
+                    <button class="theme-toggle" id="themeToggle">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Welcome Hint -->
+            <div class="welcome-hint" id="welcomeHint">
+                <i class="fas fa-hand-point-left"></i>
+                <p>👋 Click here to upload your sales data!</p>
+                <button onclick="this.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="chat-container" id="chatContainer">
+                <!-- Welcome Screen -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-content">
+                        <div class="hero-section">
+                            <div class="hero-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <h1>Welcome to DemandSense AI</h1>
+                            <p class="hero-subtitle">Supply Chain Demand Forecasting & Inventory Optimization</p>
+                        </div>
+                        
+                        <div class="quick-start">
+                            <h3>Get Started</h3>
+                            <div class="quick-actions">
+                                <div class="quick-action" id="quickUpload">
+                                    <div class="action-icon">
+                                        <i class="fas fa-file-upload"></i>
+                                    </div>
+                                    <div class="action-content">
+                                        <h4>Upload Sales Data</h4>
+                                        <p>CSV or Excel files</p>
+                                    </div>
+                                    <div class="action-arrow">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </div>
+                                </div>
+                                <div class="quick-action" id="quickPaste">
+                                    <div class="action-icon">
+                                        <i class="fas fa-paste"></i>
+                                    </div>
+                                    <div class="action-content">
+                                        <h4>Paste Data</h4>
+                                        <p>Copy-paste your data</p>
+                                    </div>
+                                    <div class="action-arrow">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </div>
+                                </div>
+                                <div class="quick-action" id="quickSample">
+                                    <div class="action-icon">
+                                        <i class="fas fa-vial"></i>
+                                    </div>
+                                    <div class="action-content">
+                                        <h4>Try Sample</h4>
+                                        <p>Test with sample data</p>
+                                    </div>
+                                    <div class="action-arrow">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Messages Container -->
+                <div class="messages-container" id="messagesContainer"></div>
+            </div>
+            
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button class="tab-btn active" id="forecastTab">
+                    <i class="fas fa-chart-line"></i> Forecast
+                </button>
+                <button class="tab-btn" id="inventoryTab">
+                    <i class="fas fa-boxes"></i> Inventory
+                </button>
+                <button class="tab-btn" id="scenarioTab">
+                    <i class="fas fa-flask"></i> What-If
+                </button>
+            </div>
+            
+            <!-- Forecast Panel -->
+            <section class="panel forecast-panel" id="forecastPanel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-chart-line"></i> Demand Forecast</h3>
+                    <div class="panel-controls">
+                        <select id="forecastPeriod" class="panel-select">
+                            <option value="7">7 Days</option>
+                            <option value="30" selected>30 Days</option>
+                            <option value="90">90 Days</option>
+                        </select>
+                        <button id="exportForecast" class="panel-btn">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="dataChart"></canvas>
+                </div>
+                <div class="forecast-stats" id="forecastStats">
+                    <!-- Stats will be populated by JS -->
+                </div>
+            </section>
+            
+            <!-- Inventory Panel -->
+            <section class="panel inventory-panel" id="inventoryPanel" style="display: none;">
+                <!-- Inventory dashboard will be rendered here -->
+            </section>
+            
+            <!-- Scenario Panel -->
+            <section class="panel scenario-panel" id="scenarioPanel" style="display: none;">
+                <!-- What-if panel will be rendered here -->
+            </section>
+            
+            <!-- Input Area -->
+            <footer class="input-section">
+                <div class="input-container">
+                    <div class="file-indicator" id="fileIndicator">
+                        <i class="fas fa-file"></i>
+                        <span id="fileName">No file selected</span>
+                        <button class="clear-file" id="clearFile">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="input-group">
+                        <textarea
+                            id="messageInput"
+                            placeholder="Ask about forecast, inventory, or scenarios..."
+                            rows="1"></textarea>
+                        <div class="input-actions">
+                            <button id="sendBtn" class="send-btn">
+                                <i class="fas fa-paper-plane"></i> Ask
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="input-hints">
+                        <span class="hint">Try: "What's the forecast?", "Show inventory risks", "Simulate demand shock"</span>
+                    </div>
+                </div>
+            </footer>
+        </main>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner">
+                <div class="spinner-circle"></div>
+            </div>
+            <h3>Generating Forecast</h3>
+            <p>Analyzing demand patterns...</p>
+            <div class="loading-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <!-- Scripts -->
+    <script src="/src/pdf-export.js"></script>
+    <script src="/src/data-validator.js"></script>
+    <script src="/src/forecast-chart.js"></script>
+    <script src="/src/inventory-dashboard.js"></script>
+    <script src="/src/what-if-panel.js"></script>
+    <script src="/src/app.js"></script>
+    
+    <!-- Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(() => console.log('✅ Service Worker registered'))
+                .catch(err => console.error('❌ Service Worker error:', err));
+        }
+    </script>
+</body>
+</html>
