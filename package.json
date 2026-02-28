@@ -47,14 +47,14 @@
     "neon",
     "pwa"
   ],
-  "author": "DemandSense AI Team",
+  "author": "Ebuka Martins",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-repo/demandsense-ai.git"
+    "url": "git+https://github.com/Ebuka-martins/demandsense-ai.git"
   },
   "bugs": {
-    "url": "https://github.com/your-repo/demandsense-ai/issues"
+    "url": "https://github.com/Ebuka-martins/demandsense-ai/issues"
   },
-  "homepage": "https://github.com/your-repo/demandsense-ai#readme"
+  "homepage": "https://github.com/Ebuka-martins/demandsense-ai#readme"
 }
