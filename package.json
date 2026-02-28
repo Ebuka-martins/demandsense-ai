@@ -5,16 +5,19 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "nodemon --ignore 'uploads/' server/server.js",
-    "clean": "rm -rf node_modules uploads",
-    "setup": "npm install && mkdir -p uploads assets/icons assets/favicon assets/src server/routes/api data/sample-data data/mock tests",
+    "dev": "nodemon --ignore uploads/ server/server.js",
+    "dev:windows": "set NODE_ENV=development && nodemon --ignore uploads/ server/server.js",
+    "clean": "node -e \"const fs=require('fs'); ['node_modules','uploads'].forEach(d=>{if(fs.existsSync(d)) fs.rmSync(d,{recursive:true,force:true})});\"",
+    "clean:all": "node -e \"const fs=require('fs'); ['node_modules','uploads','package-lock.json'].forEach(d=>{if(fs.existsSync(d)) fs.rmSync(d,{recursive:true,force:true})});\"",
+    "setup": "node -e \"const fs=require('fs'); ['uploads','assets/icons','assets/favicon','assets/src','server/routes/api','data/sample-data','data/mock','tests'].forEach(d=>{if(!fs.existsSync(d)) fs.mkdirSync(d,{recursive:true})});\"",
+    "postinstall": "node -e \"const fs=require('fs'); if(!fs.existsSync('uploads')) fs.mkdirSync('uploads');\"",
     "test": "node tests/forecast.test.js && node tests/inventory.test.js",
     "test:forecast": "node tests/forecast.test.js",
     "test:inventory": "node tests/inventory.test.js",
-    "generate-icons": "node scripts/generate-icons.js",
-    "postinstall": "mkdir -p uploads"
+    "reset": "npm run clean:all && npm install"
   },
   "dependencies": {
+    "chart.js": "^4.4.0",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
@@ -24,12 +27,12 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
-    "multer": "^2.0.0",
-    "uuid": "^9.0.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz",
-    "chart.js": "^4.4.0",
     "moment": "^2.29.4",
-    "simple-statistics": "^7.8.3"
+    "multer": "^2.0.0",
+    "object-assign": "^4.1.1",
+    "simple-statistics": "^7.8.3",
+    "uuid": "^9.0.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

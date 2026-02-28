@@ -12,13 +12,13 @@ const { v4: uuidv4 } = require('uuid');
 // Load environment variables
 dotenv.config();
 
-// Import route modules
-const forecastRoutes = require('./routes/api/forecast');
-const inventoryRoutes = require('./routes/api/inventory');
-const productRoutes = require('./routes/api/products');
-const scenarioRoutes = require('./routes/api/scenarios');
-const reportRoutes = require('./routes/api/reports');
-const authRoutes = require('./routes/api/auth');
+// Import route modules - FIXED PATHS (going up one level to root routes folder)
+const forecastRoutes = require('../routes/api/forecast');
+const inventoryRoutes = require('../routes/api/inventory');
+const productRoutes = require('../routes/api/products');
+const scenarioRoutes = require('../routes/api/scenarios');
+const reportRoutes = require('../routes/api/reports');
+const authRoutes = require('../routes/api/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
