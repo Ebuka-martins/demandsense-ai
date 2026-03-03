@@ -9,10 +9,44 @@ const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 
-// Load environment variables
-dotenv.config();
+// ==========================
+// Enhanced Environment Variable Loading
+// ==========================
 
-// Import route modules - FIXED PATHS (going up one level to root routes folder)
+// Determine which env file to use based on NODE_ENV
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const envFile = NODE_ENV === 'production' ? '.env' : '.env.local';
+const envPath = path.join(__dirname, '..', envFile);
+
+// Try to load from the environment-specific file first
+if (fs.existsSync(envPath)) {
+    console.log(`📝 Loading environment from ${envFile}`);
+    const result = dotenv.config({ path: envPath });
+    if (result.error) {
+        console.warn(`⚠️  Error loading ${envFile}:`, result.error.message);
+    }
+} else {
+    console.log(`ℹ️  No ${envFile} found, falling back to environment variables`);
+    // Fall back to default .env or system environment
+    dotenv.config();
+}
+
+// Validate required environment variables
+const requiredEnvVars = ['GROQ_API_KEY', 'DEEPSEEK_API_KEY'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+    if (NODE_ENV === 'production') {
+        console.error('❌ Missing required environment variables in production:', missingEnvVars.join(', '));
+        process.exit(1);
+    } else {
+        console.warn('\x1b[33m%s\x1b[0m', `⚠️  Missing API keys: ${missingEnvVars.join(', ')}`);
+        console.warn('\x1b[33m%s\x1b[0m', '   The app will use mock data for development.');
+        console.warn('\x1b[33m%s\x1b[0m', '   Create a .env.local file with your API keys to enable AI features.');
+    }
+}
+
+// Import route modules
 const forecastRoutes = require('../routes/api/forecast');
 const inventoryRoutes = require('../routes/api/inventory');
 const productRoutes = require('../routes/api/products');
@@ -120,6 +154,16 @@ const upload = multer({
 app.locals.upload = upload;
 
 // ==========================
+// Request logging middleware (development only)
+// ==========================
+if (NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    console.log(`📨 ${req.method} ${req.url}`);
+    next();
+  });
+}
+
+// ==========================
 // Page Routes
 // ==========================
 
@@ -169,9 +213,13 @@ app.use('/api/auth', authRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
+    environment: NODE_ENV,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
+    features: {
+      ai: !!(process.env.GROQ_API_KEY || process.env.DEEPSEEK_API_KEY)
+    }
   });
 });
 
@@ -205,10 +253,21 @@ app.get('/api/sample/products', (req, res) => {
 // Error handling middleware
 // ==========================
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
+  console.error('❌ Server error:', err);
   res.status(err.status || 500).json({
     success: false,
-    error: err.message || 'Internal server error'
+    error: err.message || 'Internal server error',
+    ...(NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// ==========================
+// 404 handler
+// ==========================
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Route not found'
   });
 });
 
@@ -216,10 +275,16 @@ app.use((err, req, res, next) => {
 // Start server
 // ==========================
 app.listen(PORT, () => {
-  console.log(`\n🚀 DemandSense AI running on http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🌐 Dashboard: http://localhost:${PORT}/`);
-  console.log(`🔐 Login page: http://localhost:${PORT}/login`);
-  console.log(`📱 PWA ready: http://localhost:${PORT}/manifest.json`);
-  console.log(`\n🎨 Neon Pink/Red theme active\n`);
+  console.log('\n' + '='.repeat(50));
+  console.log(`🚀 DemandSense AI v1.0.0`);
+  console.log('='.repeat(50));
+  console.log(`📡 Environment: ${NODE_ENV}`);
+  console.log(`🌐 Server: http://localhost:${PORT}`);
+  console.log(`📊 Health: http://localhost:${PORT}/api/health`);
+  console.log(`🔐 Login: http://localhost:${PORT}/login`);
+  console.log(`📱 PWA: http://localhost:${PORT}/manifest.json`);
+  console.log('-'.repeat(50));
+  console.log(`🤖 AI Features: ${process.env.GROQ_API_KEY || process.env.DEEPSEEK_API_KEY ? '✅ Enabled' : '⚠️  Disabled (mock mode)'}`);
+  console.log(`🎨 Theme: Neon Pink/Red`);
+  console.log('='.repeat(50) + '\n');
 });
