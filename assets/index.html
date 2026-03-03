@@ -5,11 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DemandSense AI - Supply Chain Demand Forecaster</title>
     
+    <!-- Cache Control Meta Tags -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <!-- Favicon -->
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png">
     
-    <!-- Styles -->
-    <link rel="stylesheet" href="/styles.css">
+    <!-- Styles - Add version query parameter to force refresh -->
+    <link rel="stylesheet" href="/styles.css?v=1.0.1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Chart.js -->
@@ -18,6 +25,8 @@
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#ff006e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
     <div class="container">
@@ -89,7 +98,7 @@
                     <span class="status-dot online"></span>
                     <span>Online</span>
                 </div>
-                <div class="app-version">v1.0.0</div>
+                <div class="app-version">v1.0.1</div>
             </footer>
         </aside>
         
@@ -281,20 +290,51 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
     
-    <!-- Scripts -->
-    <script src="/src/pdf-export.js"></script>
-    <script src="/src/data-validator.js"></script>
-    <script src="/src/forecast-chart.js"></script>
-    <script src="/src/inventory-dashboard.js"></script>
-    <script src="/src/what-if-panel.js"></script>
-    <script src="/src/app.js"></script>
+    <!-- Cache Buster - Must be first script -->
+    <script src="/src/cache-buster.js?v=1.0.1"></script>
     
-    <!-- Service Worker -->
+    <!-- Scripts - Order matters! -->
+    <script src="/src/pdf-export.js?v=1.0.1"></script>
+    <script src="/src/data-validator.js?v=1.0.1"></script>
+    <script src="/src/forecast-chart.js?v=1.0.1"></script>
+    <script src="/src/inventory-dashboard.js?v=1.0.1"></script>
+    <script src="/src/what-if-panel.js?v=1.0.1"></script>
+    <script src="/src/api.js?v=1.0.1"></script>
+    <script src="/src/app.js?v=1.0.1"></script>
+    
+    <!-- Service Worker Registration -->
     <script>
+        // Service Worker registration with update handling
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then(() => console.log('✅ Service Worker registered'))
-                .catch(err => console.error('❌ Service Worker error:', err));
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js?v=1.0.1')
+                    .then(registration => {
+                        console.log('✅ Service Worker registered:', registration.scope);
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            console.log('🔄 New service worker installing...');
+                            
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('📦 New version available! Refresh to update.');
+                                    // Show update notification
+                                    if (window.app && window.app.showToast) {
+                                        window.app.showToast('info', 'New version available! Refresh to update.');
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(err => console.error('❌ Service Worker error:', err));
+                
+                // Handle controller change (new worker activated)
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    console.log('🔄 Service worker controller changed, reloading...');
+                    window.location.reload();
+                });
+            });
         }
     </script>
 </body>

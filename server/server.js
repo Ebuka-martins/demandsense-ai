@@ -90,29 +90,53 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ==========================
-// Static file serving
+// Static file serving with proper MIME types
 // ==========================
+
+// Serve static files with proper caching headers
 app.use(express.static(path.join(__dirname, '../assets'), {
-  index: false,
-  setHeaders: (res, path) => {
-    if (path.endsWith('.js') || path.endsWith('.css') || path.endsWith('.png') || path.endsWith('.jpg')) {
-      res.set('Cache-Control', 'public, max-age=31536000');
+    index: false, // Don't serve index.html automatically
+    setHeaders: (res, filePath) => {
+        // Set proper MIME types
+        if (filePath.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css');
+        } else if (filePath.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        } else if (filePath.endsWith('.json')) {
+            res.setHeader('Content-Type', 'application/json');
+        } else if (filePath.endsWith('.html')) {
+            res.setHeader('Content-Type', 'text/html');
+        }
+        
+        // Cache static assets for 1 year
+        if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else {
+            // Don't cache HTML files
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
     }
-  }
 }));
 
-// Serve JavaScript files from src directory
+// Serve JavaScript files from src directory with proper MIME types
 app.use('/src', express.static(path.join(__dirname, '../assets', 'src'), {
-  maxAge: '1y'
+    setHeaders: (res, filePath) => {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
 }));
 
 // Serve icon files
 app.use('/icons', express.static(path.join(__dirname, '../assets', 'icons'), {
-  maxAge: '1y'
+    setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
 }));
 
 app.use('/favicon', express.static(path.join(__dirname, '../assets', 'favicon'), {
-  maxAge: '1y'
+    setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
 }));
 
 // ==========================
@@ -164,41 +188,7 @@ if (NODE_ENV !== 'production') {
 }
 
 // ==========================
-// Page Routes
-// ==========================
-
-// Login page
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, '../assets', 'login.html'));
-});
-
-// Main dashboard
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../assets', 'index.html'));
-});
-
-// Serve manifest and service worker
-app.get('/manifest.json', (req, res) => {
-  res.sendFile(path.join(__dirname, '../assets', 'manifest.json'), {
-    headers: {
-      'Content-Type': 'application/manifest+json',
-      'Cache-Control': 'public, max-age=3600'
-    }
-  });
-});
-
-app.get('/service-worker.js', (req, res) => {
-  res.sendFile(path.join(__dirname, '../assets', 'service-worker.js'), {
-    headers: {
-      'Content-Type': 'application/javascript',
-      'Service-Worker-Allowed': '/',
-      'Cache-Control': 'no-cache'
-    }
-  });
-});
-
-// ==========================
-// API Routes
+// API Routes - These must come BEFORE page routes
 // ==========================
 app.use('/api/forecast', forecastRoutes);
 app.use('/api/inventory', inventoryRoutes);
@@ -207,25 +197,21 @@ app.use('/api/scenarios', scenarioRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/auth', authRoutes);
 
-// ==========================
-// Health check
-// ==========================
+// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     environment: NODE_ENV,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
+    version: '1.0.1',
     features: {
       ai: !!(process.env.GROQ_API_KEY || process.env.DEEPSEEK_API_KEY)
     }
   });
 });
 
-// ==========================
 // Sample data endpoints
-// ==========================
 app.get('/api/sample/sales', (req, res) => {
   const sampleData = [
     { date: '2024-01-01', product_id: 'P001', product_name: 'Wireless Headphones', sales: 45, revenue: 4495.50, region: 'North' },
@@ -250,6 +236,74 @@ app.get('/api/sample/products', (req, res) => {
 });
 
 // ==========================
+// Page Routes - these come AFTER API routes
+// ==========================
+
+// Login page
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '../assets', 'login.html'), (err) => {
+    if (err) {
+      console.error('Error serving login.html:', err);
+      res.status(500).send('Server Error');
+    }
+  });
+});
+
+// Main dashboard
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../assets', 'index.html'), (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(500).send('Server Error');
+    }
+  });
+});
+
+// Serve manifest and service worker
+app.get('/manifest.json', (req, res) => {
+  res.sendFile(path.join(__dirname, '../assets', 'manifest.json'), {
+    headers: {
+      'Content-Type': 'application/manifest+json',
+      'Cache-Control': 'public, max-age=3600'
+    }
+  });
+});
+
+app.get('/service-worker.js', (req, res) => {
+  res.sendFile(path.join(__dirname, '../assets', 'service-worker.js'), {
+    headers: {
+      'Content-Type': 'application/javascript',
+      'Service-Worker-Allowed': '/',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    }
+  });
+});
+
+// ==========================
+// SPA Catch-all route - This must be AFTER all other routes
+// ==========================
+app.get('*', (req, res, next) => {
+  // Skip API routes
+  if (req.url.startsWith('/api/')) {
+    return next();
+  }
+  
+  // Skip static assets that might have been missed
+  if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+    return next();
+  }
+  
+  // For any other GET request, serve index.html (SPA support)
+  console.log('🔄 SPA fallback:', req.url);
+  res.sendFile(path.join(__dirname, '../assets', 'index.html'), (err) => {
+    if (err) {
+      console.error('Error serving index.html for SPA route:', err);
+      res.status(500).send('Server Error');
+    }
+  });
+});
+
+// ==========================
 // Error handling middleware
 // ==========================
 app.use((err, req, res, next) => {
@@ -262,12 +316,12 @@ app.use((err, req, res, next) => {
 });
 
 // ==========================
-// 404 handler
+// 404 handler for API routes
 // ==========================
-app.use((req, res) => {
+app.use('/api/*', (req, res) => {
   res.status(404).json({
     success: false,
-    error: 'Route not found'
+    error: 'API route not found'
   });
 });
 
@@ -276,7 +330,7 @@ app.use((req, res) => {
 // ==========================
 app.listen(PORT, () => {
   console.log('\n' + '='.repeat(50));
-  console.log(`🚀 DemandSense AI v1.0.0`);
+  console.log(`🚀 DemandSense AI v1.0.1`);
   console.log('='.repeat(50));
   console.log(`📡 Environment: ${NODE_ENV}`);
   console.log(`🌐 Server: http://localhost:${PORT}`);

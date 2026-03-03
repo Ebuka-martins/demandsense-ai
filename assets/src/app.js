@@ -1,8 +1,38 @@
 // assets/src/app.js - Main application for DemandSense AI
 
+// Cache buster - runs before everything
+(function() {
+    const APP_VERSION = '1.0.1';
+    const STORAGE_KEY = 'app_version';
+    const lastVersion = localStorage.getItem(STORAGE_KEY);
+    
+    if (lastVersion !== APP_VERSION) {
+        console.log(`🔄 Updating from v${lastVersion} to v${APP_VERSION}`);
+        
+        // Clear all caches
+        if ('caches' in window) {
+            caches.keys().then(keys => {
+                keys.forEach(key => {
+                    if (key.startsWith('demandsense-')) {
+                        console.log('🗑️ Deleting cache:', key);
+                        caches.delete(key);
+                    }
+                });
+            });
+        }
+        
+        // Clear specific localStorage items if needed
+        // Don't clear user preferences or history
+        // localStorage.removeItem('some_old_data');
+        
+        // Update version
+        localStorage.setItem(STORAGE_KEY, APP_VERSION);
+    }
+})();
+
 class DemandSenseApp {
     constructor() {
-        this.api = null; // Will use your existing API class
+        this.api = new DemandSenseAPI();
         this.currentSessionId = null;
         this.currentFile = null;
         this.forecastData = null;
@@ -16,6 +46,7 @@ class DemandSenseApp {
         this.inventoryDashboard = null;
         this.whatIfPanel = null;
         this.dataValidator = new DataValidator();
+        this.pdfExporter = new PDFExporter();
         
         // Elements
         this.elements = {};
@@ -30,20 +61,21 @@ class DemandSenseApp {
         this.initializeManagers();
         this.initializeEventListeners();
         this.loadSampleProducts();
+        this.renderHistory();
         
-        console.log('✅ DemandSense AI initialized');
+        console.log('✅ DemandSense AI v1.0.1 initialized');
     }
 
     initializeElements() {
         const ids = [
             'sidebar', 'menuToggle', 'sidebarClose', 'sidebarOverlay', 'newAnalysis',
             'fileInput', 'uploadBtn', 'dataInput', 'analyzePaste', 'analysisHistory',
-            'statusIndicator', 'welcomeScreen', 'messagesContainer', 'chatContainer',
-            'chartSection', 'dataChart', 'chartType', 'exportChart', 'exportPDF',
-            'messageInput', 'attachBtn', 'sendBtn', 'fileIndicator', 'fileName',
-            'clearFile', 'quickUpload', 'quickPaste', 'quickSample', 'loadingOverlay',
-            'installBtn', 'themeToggle', 'toastContainer', 'inventoryPanel',
-            'whatIfPanel', 'forecastTab', 'inventoryTab', 'scenarioTab'
+            'clearAllHistory', 'statusIndicator', 'welcomeScreen', 'messagesContainer', 
+            'chatContainer', 'dataChart', 'messageInput', 'sendBtn', 'fileIndicator', 
+            'fileName', 'clearFile', 'quickUpload', 'quickPaste', 'quickSample', 
+            'loadingOverlay', 'installBtn', 'themeToggle', 'toastContainer', 
+            'inventoryPanel', 'whatIfPanel', 'forecastTab', 'inventoryTab', 'scenarioTab',
+            'forecastPeriod', 'exportForecast', 'forecastStats'
         ];
 
         ids.forEach(id => {
@@ -75,6 +107,16 @@ class DemandSenseApp {
             this.elements.menuToggle.addEventListener('click', () => this.toggleSidebar());
         }
 
+        // Sidebar close
+        if (this.elements.sidebarClose) {
+            this.elements.sidebarClose.addEventListener('click', () => this.toggleSidebar());
+        }
+
+        // Overlay click
+        if (this.elements.sidebarOverlay) {
+            this.elements.sidebarOverlay.addEventListener('click', () => this.toggleSidebar());
+        }
+
         // New analysis
         if (this.elements.newAnalysis) {
             this.elements.newAnalysis.addEventListener('click', () => this.resetAnalysis());
@@ -89,6 +131,11 @@ class DemandSenseApp {
 
         if (this.elements.fileInput) {
             this.elements.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+        }
+
+        // Clear file
+        if (this.elements.clearFile) {
+            this.elements.clearFile.addEventListener('click', () => this.clearFile());
         }
 
         // Analyze paste
@@ -107,6 +154,12 @@ class DemandSenseApp {
                     e.preventDefault();
                     this.sendMessage();
                 }
+            });
+            
+            // Auto-resize textarea
+            this.elements.messageInput.addEventListener('input', () => {
+                this.elements.messageInput.style.height = 'auto';
+                this.elements.messageInput.style.height = this.elements.messageInput.scrollHeight + 'px';
             });
         }
 
@@ -145,9 +198,45 @@ class DemandSenseApp {
             this.elements.scenarioTab.addEventListener('click', () => this.switchTab('scenario'));
         }
 
+        // Forecast period change
+        if (this.elements.forecastPeriod) {
+            this.elements.forecastPeriod.addEventListener('change', () => {
+                if (this.forecastData) {
+                    // Regenerate forecast with new period
+                    this.regenerateForecast();
+                }
+            });
+        }
+
+        // Export forecast
+        if (this.elements.exportForecast) {
+            this.elements.exportForecast.addEventListener('click', () => {
+                this.exportForecast();
+            });
+        }
+
+        // Clear all history
+        if (this.elements.clearAllHistory) {
+            this.elements.clearAllHistory.addEventListener('click', () => {
+                if (confirm('Clear all forecast history?')) {
+                    this.clearAllHistory();
+                }
+            });
+        }
+
         // Online/offline
         window.addEventListener('online', () => this.updateOnlineStatus(true));
         window.addEventListener('offline', () => this.updateOnlineStatus(false));
+
+        // Install PWA
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            if (this.elements.installBtn) {
+                this.elements.installBtn.style.display = 'flex';
+                this.elements.installBtn.addEventListener('click', () => this.installPWA());
+            }
+        });
     }
 
     async handleFileSelect(e) {
@@ -167,8 +256,21 @@ class DemandSenseApp {
         this.showToast('success', `File "${file.name}" selected`);
         
         // Automatically analyze if it's a sales file
-        if (file.name.includes('sales') || file.name.includes('Sales')) {
+        if (file.name.includes('sales') || file.name.includes('Sales') || file.name.includes('data')) {
             this.analyzeSalesFile(file);
+        }
+    }
+
+    clearFile() {
+        this.currentFile = null;
+        if (this.elements.fileInput) {
+            this.elements.fileInput.value = '';
+        }
+        if (this.elements.fileIndicator) {
+            this.elements.fileIndicator.style.display = 'none';
+        }
+        if (this.elements.fileName) {
+            this.elements.fileName.textContent = 'No file selected';
         }
     }
 
@@ -178,7 +280,7 @@ class DemandSenseApp {
         try {
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('periods', '30');
+            formData.append('periods', this.elements.forecastPeriod?.value || '30');
 
             const response = await fetch('/api/forecast/generate', {
                 method: 'POST',
@@ -207,7 +309,7 @@ class DemandSenseApp {
 
         } catch (error) {
             console.error('Analysis error:', error);
-            this.showToast('error', error.message);
+            this.showToast('error', error.message || 'Failed to generate forecast');
         } finally {
             this.showLoading(false);
         }
@@ -228,7 +330,7 @@ class DemandSenseApp {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     text,
-                    periods: 30
+                    periods: parseInt(this.elements.forecastPeriod?.value) || 30
                 })
             });
 
@@ -249,9 +351,48 @@ class DemandSenseApp {
 
         } catch (error) {
             console.error('Paste analysis error:', error);
-            this.showToast('error', error.message);
+            this.showToast('error', error.message || 'Failed to analyze pasted data');
         } finally {
             this.showLoading(false);
+        }
+    }
+
+    async regenerateForecast() {
+        if (!this.currentSessionId) {
+            this.showToast('warning', 'No forecast session found');
+            return;
+        }
+
+        this.showLoading(true);
+
+        try {
+            const response = await fetch(`/api/forecast/session/${this.currentSessionId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                // Re-process with new period
+                // This would need a new API endpoint or re-upload
+                this.showToast('info', 'Regenerate forecast with new period');
+            }
+        } catch (error) {
+            console.error('Regenerate error:', error);
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    async exportForecast() {
+        if (!this.forecastData) {
+            this.showToast('warning', 'No forecast data to export');
+            return;
+        }
+
+        try {
+            await this.pdfExporter.exportForecast(this.forecastData, this.products);
+            this.showToast('success', 'Forecast exported as PDF');
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showToast('error', 'Failed to export forecast');
         }
     }
 
@@ -261,6 +402,7 @@ class DemandSenseApp {
 
         this.addMessage('user', message);
         this.elements.messageInput.value = '';
+        this.elements.messageInput.style.height = 'auto';
 
         this.showLoading(true);
 
@@ -293,7 +435,6 @@ class DemandSenseApp {
             return "Please upload sales data first to generate a forecast.";
         }
 
-        // Simple response based on forecast data
         const totalDemand = this.forecastData.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
         const avgDemand = totalDemand / (this.forecastData.forecast?.length || 1);
 
@@ -305,9 +446,7 @@ class DemandSenseApp {
 🎯 Confidence level: ${Math.round((this.forecastData.confidence || 0.85) * 100)}%
 
 **Key Insights**
-- Peak demand expected around ${this.forecastData.forecast?.[Math.floor(Math.random() * 10)]?.date || 'mid-month'}
-- ${avgDemand > 100 ? 'High' : 'Moderate'} volume products need attention
-- ${this.forecastData.insights?.[0] || 'Monitor weekly trends for adjustments'}
+${(this.forecastData.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
 
 View the forecast chart above for detailed daily predictions.
         `;
@@ -383,16 +522,20 @@ What would you like to explore? Try asking about forecast, inventory, or scenari
             this.forecastChart.updateForecast(
                 result.forecast.chartData,
                 null,
-                { title: '30-Day Demand Forecast' }
+                { title: `${this.elements.forecastPeriod?.value || 30}-Day Demand Forecast` }
             );
         }
 
+        // Update forecast stats
+        this.updateForecastStats(result.forecast);
+
         // Add forecast message
+        const totalDemand = result.forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
         const summary = `
 **Demand Forecast Generated**
 
-📊 Forecast period: 30 days
-📈 Total predicted demand: ${Math.round(result.forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0)} units
+📊 Forecast period: ${result.forecast.forecast?.length || 30} days
+📈 Total predicted demand: ${Math.round(totalDemand)} units
 🎯 Confidence level: ${Math.round((result.forecast.confidence || 0.85) * 100)}%
 
 **Key Insights**
@@ -407,6 +550,184 @@ Check the **Inventory** tab for stock recommendations.
         this.saveToHistory(result);
     }
 
+    updateForecastStats(forecast) {
+        if (!this.elements.forecastStats) return;
+
+        const totalDemand = forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
+        const avgDemand = totalDemand / (forecast.forecast?.length || 1);
+        const peakDemand = Math.max(...(forecast.forecast?.map(f => f.predicted) || [0]));
+        const confidence = forecast.confidence || 0.85;
+
+        this.elements.forecastStats.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                <div class="stat-content">
+                    <div class="stat-value">${Math.round(totalDemand)}</div>
+                    <div class="stat-label">Total Demand</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                <div class="stat-content">
+                    <div class="stat-value">${Math.round(avgDemand)}</div>
+                    <div class="stat-label">Daily Avg</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
+                <div class="stat-content">
+                    <div class="stat-value">${Math.round(peakDemand)}</div>
+                    <div class="stat-label">Peak Demand</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-content">
+                    <div class="stat-value">${Math.round(confidence * 100)}%</div>
+                    <div class="stat-label">Confidence</div>
+                </div>
+            </div>
+        `;
+    }
+
+    addMessage(role, content) {
+        const messagesContainer = this.elements.messagesContainer;
+        if (!messagesContainer) return;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${role}-message`;
+        
+        messageDiv.innerHTML = `
+            <div class="message-avatar">${role === 'user' ? 'You' : 'AI'}</div>
+            <div class="message-content">${this.formatMarkdown(content)}</div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    formatMarkdown(text) {
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\n/g, '<br>');
+    }
+
+    saveToHistory(result) {
+        const entry = {
+            id: Date.now(),
+            timestamp: new Date().toISOString(),
+            sessionId: result.sessionId,
+            forecast: {
+                total: result.forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0,
+                periods: result.forecast.forecast?.length || 0
+            },
+            preview: `Forecast: ${result.forecast.forecast?.length || 0} days`
+        };
+        
+        this.analysisHistory.unshift(entry);
+        
+        if (this.analysisHistory.length > 20) {
+            this.analysisHistory = this.analysisHistory.slice(0, 20);
+        }
+        
+        localStorage.setItem('forecastHistory', JSON.stringify(this.analysisHistory));
+        this.renderHistory();
+    }
+
+    renderHistory() {
+        const historyList = this.elements.analysisHistory;
+        if (!historyList) return;
+
+        historyList.innerHTML = '';
+
+        if (this.analysisHistory.length === 0) {
+            historyList.innerHTML = `
+                <div class="history-empty">
+                    <i class="fas fa-inbox"></i>
+                    <p>No forecasts yet</p>
+                </div>
+            `;
+            return;
+        }
+
+        this.analysisHistory.forEach((entry, index) => {
+            const date = new Date(entry.timestamp);
+            const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.innerHTML = `
+                <div class="history-item-content" data-index="${index}">
+                    <div class="history-title">${entry.preview}</div>
+                    <div class="history-date">${formattedDate}</div>
+                </div>
+                <button class="history-delete-btn" data-index="${index}" title="Delete">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            `;
+
+            item.querySelector('.history-item-content').addEventListener('click', () => {
+                this.loadHistoryItem(index);
+            });
+
+            item.querySelector('.history-delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteHistoryItem(index);
+            });
+
+            historyList.appendChild(item);
+        });
+    }
+
+    loadHistoryItem(index) {
+        const entry = this.analysisHistory[index];
+        if (entry && entry.sessionId) {
+            this.loadSession(entry.sessionId);
+        }
+    }
+
+    async loadSession(sessionId) {
+        this.showLoading(true);
+
+        try {
+            const response = await fetch(`/api/forecast/session/${sessionId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                this.currentSessionId = sessionId;
+                this.forecastData = result.session.forecast;
+                
+                if (this.forecastChart && this.forecastData?.chartData) {
+                    this.forecastChart.updateForecast(this.forecastData.chartData);
+                }
+                
+                this.updateForecastStats(this.forecastData);
+                this.showToast('info', 'Loaded historical forecast');
+            }
+        } catch (error) {
+            console.error('Error loading session:', error);
+            this.showToast('error', 'Failed to load forecast');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    deleteHistoryItem(index) {
+        this.analysisHistory.splice(index, 1);
+        localStorage.setItem('forecastHistory', JSON.stringify(this.analysisHistory));
+        this.renderHistory();
+        this.showToast('success', 'Item deleted');
+    }
+
+    clearAllHistory() {
+        this.analysisHistory = [];
+        localStorage.setItem('forecastHistory', JSON.stringify([]));
+        this.renderHistory();
+        this.showToast('success', 'All history cleared');
+    }
+
     async loadProducts() {
         try {
             const response = await fetch('/api/products');
@@ -417,6 +738,19 @@ Check the **Inventory** tab for stock recommendations.
             }
         } catch (error) {
             console.error('Error loading products:', error);
+        }
+    }
+
+    async loadSampleProducts() {
+        try {
+            const response = await fetch('/api/sample/products');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.products = result.data;
+            }
+        } catch (error) {
+            console.error('Error loading sample products:', error);
         }
     }
 
@@ -459,19 +793,6 @@ Check the **Inventory** tab for stock recommendations.
         }
     }
 
-    async loadSampleProducts() {
-        try {
-            const response = await fetch('/api/sample/products');
-            const result = await response.json();
-            
-            if (result.success) {
-                this.products = result.data;
-            }
-        } catch (error) {
-            console.error('Error loading sample products:', error);
-        }
-    }
-
     loadSampleData() {
         const sampleData = `Date,Product,Sales,Revenue
 2024-01-01,Wireless Headphones,45,4495.50
@@ -488,113 +809,6 @@ Check the **Inventory** tab for stock recommendations.
         }
         
         this.showToast('success', 'Sample sales data loaded');
-    }
-
-    addMessage(role, content) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${role}-message`;
-        
-        messageDiv.innerHTML = `
-            <div class="message-avatar">${role === 'user' ? 'You' : 'AI'}</div>
-            <div class="message-content">${this.formatMarkdown(content)}</div>
-        `;
-        
-        if (this.elements.messagesContainer) {
-            this.elements.messagesContainer.appendChild(messageDiv);
-            this.elements.messagesContainer.scrollTop = this.elements.messagesContainer.scrollHeight;
-        }
-    }
-
-    formatMarkdown(text) {
-        return text
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/`([^`]+)`/g, '<code>$1</code>')
-            .replace(/\n/g, '<br>');
-    }
-
-    saveToHistory(result) {
-        const entry = {
-            timestamp: new Date().toISOString(),
-            sessionId: result.sessionId,
-            forecast: result.forecast,
-            preview: `Forecast: ${result.forecast?.forecast?.length || 0} days`
-        };
-        
-        this.analysisHistory.unshift(entry);
-        
-        if (this.analysisHistory.length > 20) {
-            this.analysisHistory = this.analysisHistory.slice(0, 20);
-        }
-        
-        localStorage.setItem('forecastHistory', JSON.stringify(this.analysisHistory));
-        this.renderHistory();
-    }
-
-    renderHistory() {
-        const historyList = this.elements.analysisHistory;
-        if (!historyList) return;
-
-        historyList.innerHTML = '';
-
-        if (this.analysisHistory.length === 0) {
-            historyList.innerHTML = `
-                <div class="history-empty">
-                    <i class="fas fa-inbox"></i>
-                    <p>No forecasts yet</p>
-                </div>
-            `;
-            return;
-        }
-
-        this.analysisHistory.forEach((entry, index) => {
-            const date = new Date(entry.timestamp);
-            const formattedDate = date.toLocaleDateString();
-
-            const item = document.createElement('div');
-            item.className = 'history-item';
-            item.innerHTML = `
-                <div class="history-item-content" data-index="${index}">
-                    <div class="history-title">${entry.preview}</div>
-                    <div class="history-date">${formattedDate}</div>
-                </div>
-                <button class="history-delete-btn" data-index="${index}">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            `;
-
-            item.querySelector('.history-item-content').addEventListener('click', () => {
-                this.loadHistoryItem(index);
-            });
-
-            item.querySelector('.history-delete-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.deleteHistoryItem(index);
-            });
-
-            historyList.appendChild(item);
-        });
-    }
-
-    loadHistoryItem(index) {
-        const entry = this.analysisHistory[index];
-        if (entry) {
-            this.currentSessionId = entry.sessionId;
-            this.forecastData = entry.forecast;
-            
-            if (this.forecastChart && entry.forecast?.chartData) {
-                this.forecastChart.updateForecast(entry.forecast.chartData);
-            }
-            
-            this.showToast('info', 'Loaded historical forecast');
-        }
-    }
-
-    deleteHistoryItem(index) {
-        this.analysisHistory.splice(index, 1);
-        localStorage.setItem('forecastHistory', JSON.stringify(this.analysisHistory));
-        this.renderHistory();
-        this.showToast('success', 'Item deleted');
     }
 
     resetAnalysis() {
@@ -614,9 +828,11 @@ Check the **Inventory** tab for stock recommendations.
             this.forecastChart.showNoData();
         }
         
-        if (this.elements.fileIndicator) {
-            this.elements.fileIndicator.style.display = 'none';
+        if (this.elements.forecastStats) {
+            this.elements.forecastStats.innerHTML = '';
         }
+        
+        this.clearFile();
         
         this.showToast('info', 'New analysis started');
     }
@@ -676,6 +892,22 @@ Check the **Inventory** tab for stock recommendations.
             isOnline ? 'Back online' : 'You are offline');
     }
 
+    async installPWA() {
+        if (!this.deferredPrompt) return;
+        
+        this.deferredPrompt.prompt();
+        const { outcome } = await this.deferredPrompt.userChoice;
+        
+        if (outcome === 'accepted') {
+            this.showToast('success', 'Thanks for installing!');
+        }
+        
+        this.deferredPrompt = null;
+        if (this.elements.installBtn) {
+            this.elements.installBtn.style.display = 'none';
+        }
+    }
+
     showLoading(show) {
         if (this.elements.loadingOverlay) {
             this.elements.loadingOverlay.style.display = show ? 'flex' : 'none';
@@ -683,6 +915,9 @@ Check the **Inventory** tab for stock recommendations.
     }
 
     showToast(type, message) {
+        const container = this.elements.toastContainer;
+        if (!container) return;
+
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         
@@ -700,7 +935,7 @@ Check the **Inventory** tab for stock recommendations.
             </div>
         `;
         
-        this.elements.toastContainer.appendChild(toast);
+        container.appendChild(toast);
         
         setTimeout(() => {
             toast.style.transform = 'translateX(0)';
@@ -723,7 +958,7 @@ Check the **Inventory** tab for stock recommendations.
             return false;
         }
         
-        if (currentPath === '/' && !currentUser) {
+        if (currentPath === '/' && !currentUser && window.location.hostname !== 'localhost') {
             window.location.href = '/login';
             return false;
         }
@@ -732,7 +967,7 @@ Check the **Inventory** tab for stock recommendations.
     }
 }
 
-// Initialize app
+// Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     if (window.location.pathname !== '/login') {
         window.app = new DemandSenseApp();

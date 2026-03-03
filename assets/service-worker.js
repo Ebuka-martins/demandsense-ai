@@ -1,6 +1,6 @@
-// assets/service-worker.js - PWA Service Worker with neon theme caching
+// assets/service-worker.js - PWA Service Worker with improved cache handling
 
-const CACHE_NAME = 'demandsense-cache-v1';
+const CACHE_NAME = 'demandsense-cache-v2'; // Increment version for updates
 const STATIC_ASSETS = [
   '/',
   '/login.html',
@@ -19,31 +19,44 @@ const STATIC_ASSETS = [
   '/icons/icon-192.png',
   '/icons/icon-384.png',
   '/icons/icon-512.png',
+  '/src/cache-buster.js',
   '/src/app.js',
   '/src/api.js',
   '/src/forecast-chart.js',
   '/src/inventory-dashboard.js',
   '/src/what-if-panel.js',
   '/src/data-validator.js',
-  '/src/pdf-export.js',
+  '/src/pdf-export.js'
+];
+
+// External assets (these might change, so cache with care)
+const EXTERNAL_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js'
+  'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
 // Install event - cache static assets
 self.addEventListener('install', event => {
-  console.log('🔧 Service Worker installing...');
+  console.log('🔧 Service Worker v2 installing...');
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('📦 Caching static assets...');
-        return cache.addAll(STATIC_ASSETS);
+        // Use addAll but handle failures gracefully
+        return Promise.allSettled(
+          STATIC_ASSETS.map(asset => 
+            cache.add(asset).catch(err => 
+              console.warn('⚠️ Failed to cache:', asset, err.message)
+            )
+          )
+        );
       })
-      .then(() => self.skipWaiting())
-      .catch(err => console.error('Cache error:', err))
+      .then(() => {
+        console.log('✅ Service Worker installed');
+        return self.skipWaiting();
+      })
+      .catch(err => console.error('❌ Cache error:', err))
   );
 });
 
@@ -63,56 +76,93 @@ self.addEventListener('activate', event => {
       );
     }).then(() => {
       console.log('✅ Service Worker activated');
+      // Immediately claim all clients
       return self.clients.claim();
     })
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - Network first for HTML, cache first for assets
 self.addEventListener('fetch', event => {
-  // Skip API calls and non-GET requests
-  if (event.request.url.includes('/api/') || event.request.method !== 'GET') {
+  const url = new URL(event.request.url);
+  
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+  
+  // Skip API calls
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+  
+  // Skip chrome-extension requests
+  if (url.protocol === 'chrome-extension:') {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request)
-      .then(cachedResponse => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-        return fetch(event.request)
-          .then(response => {
-            // Don't cache non-successful responses
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Cache the response
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          })
-          .catch(() => {
-            // If offline and HTML request, return offline page
-            if (event.request.headers.get('accept')?.includes('text/html')) {
-              return caches.match('/login.html');
-            }
-            
-            // Return a simple offline response for other requests
-            return new Response('You are offline. Please check your connection.', {
-              status: 503,
-              statusText: 'Service Unavailable',
-              headers: new Headers({
-                'Content-Type': 'text/plain'
-              })
+  // For HTML pages - network first, then cache
+  if (event.request.mode === 'navigate' || 
+      (event.request.headers.get('accept') && 
+       event.request.headers.get('accept').includes('text/html'))) {
+    
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Cache the fresh HTML (but with no-cache headers)
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseClone);
             });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback to cached version if offline
+          return caches.match(event.request).then(cached => {
+            if (cached) {
+              return cached;
+            }
+            // If no cached HTML, try to serve index.html
+            return caches.match('/index.html');
           });
+        })
+    );
+    return;
+  }
+
+  // For static assets - cache first, then network (stale-while-revalidate)
+  if (url.pathname.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+    event.respondWith(
+      caches.match(event.request)
+        .then(cachedResponse => {
+          // Return cached version and update cache in background
+          const fetchPromise = fetch(event.request)
+            .then(networkResponse => {
+              if (networkResponse && networkResponse.status === 200) {
+                caches.open(CACHE_NAME).then(cache => {
+                  cache.put(event.request, networkResponse);
+                });
+              }
+              return networkResponse;
+            })
+            .catch(() => {});
+          
+          return cachedResponse || fetchPromise;
+        })
+    );
+    return;
+  }
+
+  // For everything else - network only
+  event.respondWith(
+    fetch(event.request)
+      .catch(() => {
+        // If offline and it's a request we might have cached
+        return caches.match(event.request).then(cached => {
+          return cached || new Response('Offline', { status: 503 });
+        });
       })
   );
 });
@@ -154,6 +204,17 @@ self.addEventListener('notificationclick', event => {
     event.waitUntil(
       clients.openWindow('/')
     );
+  }
+});
+
+// Message handler for version checks
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+  
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({ version: CACHE_NAME });
   }
 });
 
