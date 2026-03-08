@@ -1,4 +1,4 @@
-// routes/api/forecast.js - Forecast endpoints
+// routes/api/forecast.js - Forecast endpoints with long-term support
 const express = require('express');
 const router = express.Router();
 const fs = require('fs');
@@ -80,17 +80,35 @@ router.post('/generate', (req, res) => {
         }
       }
 
-      // Parse options
+      // Parse options - Handle longer periods
+      let forecastPeriods = parseInt(req.body.periods) || 30;
+      
+      // Map dropdown values to actual days
+      const periodMap = {
+        '7': 7,
+        '30': 30,
+        '90': 90,
+        '365': 365,  // 1 year
+        '1825': 1825, // 5 years
+        '3650': 3650  // 10 years
+      };
+      
+      // If the value is a string key, convert to actual days
+      if (typeof req.body.periods === 'string' && periodMap[req.body.periods]) {
+        forecastPeriods = periodMap[req.body.periods];
+      }
+
       const options = {
-        forecastPeriods: parseInt(req.body.periods) || 30,
+        forecastPeriods: forecastPeriods,
         confidenceLevel: parseFloat(req.body.confidence) || 0.95,
         includeExternalFactors: req.body.external !== 'false',
         seasonalityDetection: req.body.seasonality !== 'false',
         cacheKey: sessionId
       };
 
+      console.log(`🔮 Generating forecast for ${forecastPeriods} days...`);
+
       // Generate forecast
-      console.log('🔮 Generating forecast...');
       const forecast = await forecastLogic.generateForecast(
         salesData, 
         products, 
@@ -121,7 +139,8 @@ router.post('/generate', (req, res) => {
         metadata: {
           dataPoints: salesData.length,
           productsCount: products.length,
-          generatedAt: new Date().toISOString()
+          generatedAt: new Date().toISOString(),
+          forecastPeriods: forecastPeriods
         }
       });
 
@@ -143,7 +162,7 @@ router.post('/generate', (req, res) => {
 
 /**
  * POST /api/forecast/text
- * Generate forecast from pasted text data
+ * Generate forecast from pasted text data - Handle longer periods
  */
 router.post('/text', async (req, res) => {
   const { text, products, periods = 30, confidence = 0.95, sessionId } = req.body;
@@ -190,9 +209,24 @@ router.post('/text', async (req, res) => {
       }
     }
 
+    // Handle period mapping
+    let forecastPeriods = parseInt(periods) || 30;
+    const periodMap = {
+      '7': 7,
+      '30': 30,
+      '90': 90,
+      '365': 365,
+      '1825': 1825,
+      '3650': 3650
+    };
+    
+    if (typeof periods === 'string' && periodMap[periods]) {
+      forecastPeriods = periodMap[periods];
+    }
+
     // Generate forecast
     const forecast = await forecastLogic.generateForecast(salesData, productData, {
-      forecastPeriods: periods,
+      forecastPeriods: forecastPeriods,
       confidenceLevel: confidence,
       cacheKey: newSessionId
     });
@@ -217,7 +251,8 @@ router.post('/text', async (req, res) => {
       metadata: {
         dataPoints: salesData.length,
         productsCount: productData.length,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        forecastPeriods: forecastPeriods
       }
     });
 

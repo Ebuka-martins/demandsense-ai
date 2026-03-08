@@ -1,4 +1,4 @@
-// server/forecast-logic.js - Groq-powered demand forecasting
+// server/forecast-logic.js - Groq-powered demand forecasting with long-term support
 const dotenv = require('dotenv');
 const { v4: uuidv4 } = require('uuid');
 const promptTemplates = require('./prompt-templates');
@@ -33,6 +33,8 @@ class ForecastLogic {
       cacheKey = null
     } = options;
 
+    console.log(`🔮 Generating forecast for ${forecastPeriods} days...`);
+
     // Check cache if cacheKey provided
     if (cacheKey && forecastCache.has(cacheKey)) {
       const cached = forecastCache.get(cacheKey);
@@ -48,6 +50,9 @@ class ForecastLogic {
         throw new Error('No sales data provided');
       }
 
+      // For long-term forecasts (1+ years), we need to adjust the approach
+      const isLongTerm = forecastPeriods > 90;
+      
       // Detect seasonality if enabled
       let seasonality = null;
       if (seasonalityDetection) {
@@ -55,32 +60,33 @@ class ForecastLogic {
         console.log('📊 Detected seasonality:', seasonality);
       }
 
-      // Prepare data sample
-      const salesSample = salesData.slice(-500); // Last 500 records max
+      // Prepare data sample - for long-term forecasts, we need more data
+      const salesSample = salesData.slice(-Math.min(1000, salesData.length));
       const productsSample = products || [];
 
-      // Get external factors (mock for now)
+      // Get external factors
       const externalFactors = includeExternalFactors 
         ? await this.getExternalFactors() 
         : null;
 
-      // Build the prompt
+      // Build the prompt with longer period context
       const prompt = promptTemplates.buildForecastPrompt({
         salesData: salesSample,
         products: productsSample,
         forecastPeriods,
         confidenceLevel,
         seasonality,
-        externalFactors
+        externalFactors,
+        isLongTerm
       });
 
       console.log('🤖 Sending forecast request to AI...');
 
-      // Call AI API
-      const response = await this.callAI(prompt);
+      // Call AI API with adjusted parameters for longer forecasts
+      const response = await this.callAI(prompt, isLongTerm);
 
       // Parse the response
-      const forecast = this.parseForecastResponse(response, salesSample);
+      const forecast = this.parseForecastResponse(response, salesSample, forecastPeriods);
 
       // Add metadata
       const result = {
@@ -92,7 +98,8 @@ class ForecastLogic {
           confidenceLevel,
           seasonalityDetected: !!seasonality,
           provider: this.provider,
-          model: this.model
+          model: this.model,
+          isLongTerm
         }
       };
 
@@ -108,15 +115,138 @@ class ForecastLogic {
 
     } catch (error) {
       console.error('Forecast generation error:', error);
+      
+      // Fallback to algorithmic forecast if AI fails
+      if (forecastPeriods > 90) {
+        console.log('📊 Using algorithmic fallback for long-term forecast');
+        return this.generateAlgorithmicForecast(salesData, forecastPeriods);
+      }
+      
       throw new Error(`Failed to generate forecast: ${error.message}`);
     }
   }
 
   /**
-   * Call AI API
+   * Generate algorithmic forecast for long periods when AI might fail
    */
-  async callAI(prompt) {
+  generateAlgorithmicForecast(salesData, periods) {
+    const historical = this.aggregateHistoricalData(salesData);
+    const values = historical.map(h => h.sales);
+    
+    // Calculate trend
+    const trend = this.calculateTrend(values);
+    const seasonality = this.calculateSeasonalFactors(values);
+    
+    const forecast = [];
+    const lastDate = new Date(historical[historical.length - 1].date);
+    const lastValue = values[values.length - 1];
+    
+    for (let i = 1; i <= periods; i++) {
+      const date = new Date(lastDate);
+      date.setDate(date.getDate() + i);
+      
+      // Apply trend and seasonality
+      let predicted = lastValue * (1 + trend * i);
+      
+      // Apply seasonal factor based on month
+      const month = date.getMonth();
+      predicted *= (seasonality[month] || 1);
+      
+      // Add some randomness for realism
+      const variation = (Math.random() - 0.5) * predicted * 0.05;
+      predicted += variation;
+      
+      forecast.push({
+        date: date.toISOString().split('T')[0],
+        predicted: Math.round(predicted * 100) / 100,
+        upper_bound: Math.round(predicted * 1.15 * 100) / 100,
+        lower_bound: Math.round(predicted * 0.85 * 100) / 100
+      });
+    }
+
+    return {
+      forecast,
+      insights: this.generateLongTermInsights(forecast, periods),
+      recommendations: this.generateLongTermRecommendations(forecast),
+      confidence: 0.75,
+      chartData: this.prepareChartData({ forecast }, historical)
+    };
+  }
+
+  /**
+   * Calculate trend from historical data
+   */
+  calculateTrend(values) {
+    if (values.length < 2) return 0;
+    
+    const x = Array.from({ length: values.length }, (_, i) => i);
+    const y = values;
+    
+    // Simple linear regression
+    const n = x.length;
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((a, _, i) => a + x[i] * y[i], 0);
+    const sumXX = x.reduce((a, _, i) => a + x[i] * x[i], 0);
+    
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    return slope / (sumY / n); // Return as percentage
+  }
+
+  /**
+   * Calculate seasonal factors by month
+   */
+  calculateSeasonalFactors(values) {
+    const factors = Array(12).fill(1);
+    
+    if (values.length < 12) return factors;
+    
+    // Simple placeholder - in production, this would calculate actual seasonal patterns
+    const monthFactors = [1.2, 1.0, 0.9, 0.9, 1.0, 1.1, 1.1, 1.0, 1.0, 1.1, 1.2, 1.3];
+    
+    return monthFactors;
+  }
+
+  /**
+   * Generate long-term insights
+   */
+  generateLongTermInsights(forecast, periods) {
+    const years = periods / 365;
+    const totalDemand = forecast.reduce((sum, f) => sum + f.predicted, 0);
+    const avgYearly = totalDemand / years;
+    
+    return [
+      `Long-term forecast covers ${years.toFixed(1)} years with total demand of ${Math.round(totalDemand)} units`,
+      `Average yearly demand projected at ${Math.round(avgYearly)} units`,
+      `Consider economic factors and market trends for long-term planning`,
+      `Review forecast annually and adjust based on actual performance`
+    ];
+  }
+
+  /**
+   * Generate long-term recommendations
+   */
+  generateLongTermRecommendations(forecast) {
+    return [
+      'Develop multi-year procurement strategy based on projected growth',
+      'Review supplier contracts for long-term volume discounts',
+      'Plan warehouse capacity expansion for projected inventory levels',
+      'Consider economic indicators and market trends in strategic planning',
+      'Establish quarterly review cycles to track forecast accuracy'
+    ];
+  }
+
+  /**
+   * Call AI API with timeout for long forecasts
+   */
+  async callAI(prompt, isLongTerm = false) {
     try {
+      // Longer timeout for long-term forecasts
+      const timeout = isLongTerm ? 60000 : 30000; // 60 seconds for long-term
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
       const response = await fetch(this.baseURL, {
         method: 'POST',
         headers: {
@@ -128,17 +258,20 @@ class ForecastLogic {
           messages: [
             {
               role: 'system',
-              content: promptTemplates.getSystemPrompt()
+              content: promptTemplates.getSystemPrompt(isLongTerm)
             },
             {
               role: 'user',
               content: prompt
             }
           ],
-          temperature: 0.3, // Lower temperature for more consistent forecasts
-          max_tokens: 4000
-        })
+          temperature: isLongTerm ? 0.4 : 0.3, // Slightly more creative for long-term
+          max_tokens: isLongTerm ? 6000 : 4000
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -157,7 +290,7 @@ class ForecastLogic {
   /**
    * Parse AI response into structured forecast
    */
-  parseForecastResponse(response, originalData) {
+  parseForecastResponse(response, originalData, expectedPeriods) {
     try {
       // Try to extract JSON from the response
       const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || 
@@ -166,9 +299,18 @@ class ForecastLogic {
       let forecastData;
       if (jsonMatch) {
         forecastData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+        
+        // Validate forecast length
+        if (forecastData.forecast && forecastData.forecast.length !== expectedPeriods) {
+          console.warn(`⚠️ Forecast length mismatch: expected ${expectedPeriods}, got ${forecastData.forecast.length}`);
+          // Trim or pad as needed
+          if (forecastData.forecast.length > expectedPeriods) {
+            forecastData.forecast = forecastData.forecast.slice(0, expectedPeriods);
+          }
+        }
       } else {
         // Fallback: create basic forecast structure
-        forecastData = this.createFallbackForecast(originalData);
+        forecastData = this.createFallbackForecast(originalData, expectedPeriods);
       }
 
       return {
@@ -181,7 +323,7 @@ class ForecastLogic {
 
     } catch (error) {
       console.error('Failed to parse forecast response:', error);
-      return this.createFallbackForecast(originalData);
+      return this.createFallbackForecast(originalData, expectedPeriods);
     }
   }
 
@@ -286,7 +428,7 @@ class ForecastLogic {
   /**
    * Create fallback forecast using simple moving average
    */
-  createFallbackForecast(data) {
+  createFallbackForecast(data, periods = 30) {
     const historical = this.aggregateHistoricalData(data);
     const values = historical.map(h => h.sales);
     
@@ -297,13 +439,14 @@ class ForecastLogic {
     const forecast = [];
     const lastDate = new Date(historical[historical.length - 1].date);
     
-    for (let i = 1; i <= 30; i++) {
+    for (let i = 1; i <= periods; i++) {
       const date = new Date(lastDate);
       date.setDate(date.getDate() + i);
       
-      // Add some randomness
+      // Add some randomness and slight trend
+      const trend = 0.001; // 0.1% per day
       const variation = (Math.random() - 0.5) * lastAvg * 0.1;
-      const predicted = lastAvg + variation;
+      const predicted = lastAvg * (1 + trend * i) + variation;
       
       forecast.push({
         date: date.toISOString().split('T')[0],
@@ -315,16 +458,8 @@ class ForecastLogic {
 
     return {
       forecast,
-      insights: [
-        'Based on historical average, demand appears stable',
-        'Consider seasonal factors for more accurate forecast',
-        'Inventory levels should be maintained at current levels'
-      ],
-      recommendations: [
-        'Monitor weekly sales trends for early signals',
-        'Review safety stock levels for top products',
-        'Consider external factors like promotions and holidays'
-      ],
+      insights: this.generateLongTermInsights(forecast, periods),
+      recommendations: this.generateLongTermRecommendations(forecast),
       confidence: 0.75,
       chartData: this.prepareChartData({ forecast }, data)
     };

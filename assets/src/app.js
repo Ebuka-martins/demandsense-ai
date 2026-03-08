@@ -75,7 +75,7 @@ class DemandSenseApp {
             'fileName', 'clearFile', 'quickUpload', 'quickPaste', 'quickSample', 
             'loadingOverlay', 'installBtn', 'themeToggle', 'toastContainer', 
             'inventoryPanel', 'whatIfPanel', 'forecastTab', 'inventoryTab', 'scenarioTab',
-            'forecastPeriod', 'exportForecast', 'forecastStats'
+            'forecastPeriod', 'exportForecast', 'forecastStats', 'welcomeHint', 'closeWelcomeHint'
         ];
 
         ids.forEach(id => {
@@ -201,10 +201,7 @@ class DemandSenseApp {
         // Forecast period change
         if (this.elements.forecastPeriod) {
             this.elements.forecastPeriod.addEventListener('change', () => {
-                if (this.forecastData) {
-                    // Regenerate forecast with new period
-                    this.regenerateForecast();
-                }
+                this.handlePeriodChange();
             });
         }
 
@@ -224,6 +221,29 @@ class DemandSenseApp {
             });
         }
 
+        // Close welcome hint button
+        if (this.elements.closeWelcomeHint) {
+            this.elements.closeWelcomeHint.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (this.elements.welcomeHint) {
+                    this.elements.welcomeHint.remove();
+                    // Optional: Store in localStorage that user closed it
+                    localStorage.setItem('welcomeHintClosed', 'true');
+                }
+            });
+        }
+
+        // Make the whole welcome hint clickable to trigger file upload
+        if (this.elements.welcomeHint) {
+            this.elements.welcomeHint.addEventListener('click', (e) => {
+                // Don't trigger if clicking the close button
+                if (!e.target.closest('#closeWelcomeHint')) {
+                    this.elements.fileInput.click();
+                }
+            });
+        }
+
         // Online/offline
         window.addEventListener('online', () => this.updateOnlineStatus(true));
         window.addEventListener('offline', () => this.updateOnlineStatus(false));
@@ -239,6 +259,9 @@ class DemandSenseApp {
         });
     }
 
+    /**
+     * Handle file selection and upload
+     */
     async handleFileSelect(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -261,6 +284,9 @@ class DemandSenseApp {
         }
     }
 
+    /**
+     * Clear selected file
+     */
     clearFile() {
         this.currentFile = null;
         if (this.elements.fileInput) {
@@ -274,13 +300,22 @@ class DemandSenseApp {
         }
     }
 
+    /**
+     * Analyze uploaded sales file
+     */
     async analyzeSalesFile(file) {
         this.showLoading(true);
 
         try {
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('periods', this.elements.forecastPeriod?.value || '30');
+            
+            // Get the selected period value
+            const periodSelect = this.elements.forecastPeriod;
+            let periodValue = periodSelect ? periodSelect.value : '30';
+            
+            // Pass the actual value - backend will map it
+            formData.append('periods', periodValue);
 
             const response = await fetch('/api/forecast/generate', {
                 method: 'POST',
@@ -293,7 +328,7 @@ class DemandSenseApp {
                 this.currentSessionId = result.sessionId;
                 this.forecastData = result.forecast;
                 
-                // Display forecast
+                // Display forecast with period info
                 this.displayForecast(result);
                 
                 // Load products for inventory
@@ -302,7 +337,14 @@ class DemandSenseApp {
                 // Generate inventory recommendations
                 await this.generateInventoryRecommendations();
                 
-                this.showToast('success', 'Forecast generated successfully');
+                // Show appropriate success message
+                const days = result.metadata?.forecastPeriods || 30;
+                const years = days / 365;
+                if (years >= 1) {
+                    this.showToast('success', `${years.toFixed(1)}-year strategic forecast generated`);
+                } else {
+                    this.showToast('success', `${days}-day forecast generated successfully`);
+                }
             } else {
                 throw new Error(result.error);
             }
@@ -315,6 +357,9 @@ class DemandSenseApp {
         }
     }
 
+    /**
+     * Analyze pasted text data
+     */
     async analyzePastedData() {
         const text = this.elements.dataInput?.value.trim();
         if (!text) {
@@ -325,12 +370,16 @@ class DemandSenseApp {
         this.showLoading(true);
 
         try {
+            const periodSelect = this.elements.forecastPeriod;
+            const periodValue = periodSelect ? periodSelect.value : '30';
+
             const response = await fetch('/api/forecast/text', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     text,
-                    periods: parseInt(this.elements.forecastPeriod?.value) || 30
+                    periods: periodValue,
+                    sessionId: this.currentSessionId
                 })
             });
 
@@ -344,7 +393,13 @@ class DemandSenseApp {
                 await this.loadProducts();
                 await this.generateInventoryRecommendations();
                 
-                this.showToast('success', 'Forecast generated from pasted data');
+                const days = result.metadata?.forecastPeriods || 30;
+                const years = days / 365;
+                if (years >= 1) {
+                    this.showToast('success', `${years.toFixed(1)}-year strategic forecast generated from pasted data`);
+                } else {
+                    this.showToast('success', `${days}-day forecast generated from pasted data`);
+                }
             } else {
                 throw new Error(result.error);
             }
@@ -357,6 +412,18 @@ class DemandSenseApp {
         }
     }
 
+    /**
+     * Handle forecast period change
+     */
+    handlePeriodChange() {
+        if (this.forecastData) {
+            this.regenerateForecast();
+        }
+    }
+
+    /**
+     * Regenerate forecast with new period
+     */
     async regenerateForecast() {
         if (!this.currentSessionId) {
             this.showToast('warning', 'No forecast session found');
@@ -366,21 +433,53 @@ class DemandSenseApp {
         this.showLoading(true);
 
         try {
-            const response = await fetch(`/api/forecast/session/${this.currentSessionId}`);
-            const result = await response.json();
+            // Get session data
+            const sessionResponse = await fetch(`/api/forecast/session/${this.currentSessionId}`);
+            const sessionResult = await sessionResponse.json();
 
-            if (result.success) {
-                // Re-process with new period
-                // This would need a new API endpoint or re-upload
-                this.showToast('info', 'Regenerate forecast with new period');
+            if (sessionResult.success) {
+                // Get the new period
+                const periodSelect = this.elements.forecastPeriod;
+                const periodValue = periodSelect ? periodSelect.value : '30';
+                
+                // If we have the original file, use it
+                if (this.currentFile) {
+                    const formData = new FormData();
+                    formData.append('file', this.currentFile);
+                    formData.append('periods', periodValue);
+                    
+                    const response = await fetch('/api/forecast/generate', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.forecastData = result.forecast;
+                        this.displayForecast(result);
+                        
+                        const days = result.metadata?.forecastPeriods || 30;
+                        const years = days / 365;
+                        this.showToast('success', years >= 1 ? 
+                            `Regenerated ${years.toFixed(1)}-year forecast` : 
+                            `Regenerated ${days}-day forecast`);
+                    }
+                } else {
+                    this.showToast('warning', 'Original data not available for regeneration');
+                }
             }
         } catch (error) {
             console.error('Regenerate error:', error);
+            this.showToast('error', 'Failed to regenerate forecast');
         } finally {
             this.showLoading(false);
         }
     }
 
+    /**
+     * Export forecast as PDF
+     */
     async exportForecast() {
         if (!this.forecastData) {
             this.showToast('warning', 'No forecast data to export');
@@ -396,6 +495,9 @@ class DemandSenseApp {
         }
     }
 
+    /**
+     * Send message in chat
+     */
     async sendMessage() {
         const message = this.elements.messageInput?.value.trim();
         if (!message) return;
@@ -430,6 +532,9 @@ class DemandSenseApp {
         }
     }
 
+    /**
+     * Handle forecast questions
+     */
     async handleForecastQuestion(question) {
         if (!this.forecastData) {
             return "Please upload sales data first to generate a forecast.";
@@ -437,9 +542,25 @@ class DemandSenseApp {
 
         const totalDemand = this.forecastData.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
         const avgDemand = totalDemand / (this.forecastData.forecast?.length || 1);
+        const days = this.forecastData.forecast?.length || 30;
+        const years = days / 365;
 
-        return `
-**Demand Forecast Summary**
+        if (years >= 1) {
+            return `
+**Strategic Forecast Summary (${years.toFixed(1)} Years)**
+
+📊 Total projected demand: ${Math.round(totalDemand)} units
+📈 Average yearly demand: ${Math.round(totalDemand / years)} units
+🎯 Confidence level: ${Math.round((this.forecastData.confidence || 0.85) * 100)}%
+
+**Strategic Insights**
+${(this.forecastData.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
+
+View the forecast chart above for detailed long-term projections.
+            `;
+        } else {
+            return `
+**Demand Forecast Summary (${days} Days)**
 
 📊 Total predicted demand: ${Math.round(totalDemand)} units
 📈 Average daily demand: ${Math.round(avgDemand)} units
@@ -449,9 +570,13 @@ class DemandSenseApp {
 ${(this.forecastData.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
 
 View the forecast chart above for detailed daily predictions.
-        `;
+            `;
+        }
     }
 
+    /**
+     * Handle inventory questions
+     */
     async handleInventoryQuestion(question) {
         if (!this.inventoryData) {
             return "Please generate a forecast first to see inventory recommendations.";
@@ -479,6 +604,9 @@ Check the Inventory tab for complete details.
         `;
     }
 
+    /**
+     * Handle scenario questions
+     */
     async handleScenarioQuestion(question) {
         return `
 **What-If Scenario Analysis**
@@ -494,10 +622,13 @@ Example: Try a 50% demand increase for 7 days to see stockout risks.
         `;
     }
 
+    /**
+     * Handle general questions
+     */
     async handleGeneralQuestion(question) {
         return `
 I can help you with:
-- 📊 **Demand forecasting** - Upload sales data for predictions
+- 📊 **Demand forecasting** - Upload sales data for predictions (7 days to 10 years)
 - 📦 **Inventory optimization** - Get reorder recommendations
 - 🔮 **What-if scenarios** - Simulate business conditions
 - 📈 **Trend analysis** - Understand demand patterns
@@ -506,6 +637,9 @@ What would you like to explore? Try asking about forecast, inventory, or scenari
         `;
     }
 
+    /**
+     * Display forecast with appropriate context
+     */
     displayForecast(result) {
         // Hide welcome screen
         if (this.elements.welcomeScreen) {
@@ -517,32 +651,65 @@ What would you like to explore? Try asking about forecast, inventory, or scenari
             this.elements.messagesContainer.style.display = 'block';
         }
 
-        // Update forecast chart
+        // Update forecast chart with appropriate title
+        const days = result.metadata?.forecastPeriods || 30;
+        const years = days / 365;
+        let title;
+        
+        if (years >= 1) {
+            title = `${years.toFixed(1)}-Year Strategic Demand Forecast`;
+        } else {
+            title = `${days}-Day Demand Forecast`;
+        }
+
         if (this.forecastChart && result.forecast?.chartData) {
             this.forecastChart.updateForecast(
                 result.forecast.chartData,
                 null,
-                { title: `${this.elements.forecastPeriod?.value || 30}-Day Demand Forecast` }
+                { title }
             );
         }
 
         // Update forecast stats
         this.updateForecastStats(result.forecast);
 
-        // Add forecast message
+        // Add forecast message with context
         const totalDemand = result.forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
-        const summary = `
-**Demand Forecast Generated**
+        const avgDemand = totalDemand / days;
+        
+        let summary = '';
+        if (years >= 1) {
+            summary = `
+**${years.toFixed(1)}-Year Strategic Forecast Generated**
 
-📊 Forecast period: ${result.forecast.forecast?.length || 30} days
+📊 Forecast period: ${days} days (${years.toFixed(1)} years)
+📈 Total projected demand: ${Math.round(totalDemand)} units
+📊 Average yearly demand: ${Math.round(totalDemand / years)} units
+🎯 Confidence level: ${Math.round((result.forecast.confidence || 0.85) * 100)}%
+
+**Strategic Insights**
+${(result.forecast.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
+
+**Long-term Recommendations**
+${(result.forecast.recommendations || []).slice(0, 3).map(r => `- ${r}`).join('\n')}
+
+This is a strategic forecast for long-term planning. Review and adjust annually.
+            `;
+        } else {
+            summary = `
+**${days}-Day Demand Forecast Generated**
+
+📊 Forecast period: ${days} days
 📈 Total predicted demand: ${Math.round(totalDemand)} units
+📊 Average daily demand: ${Math.round(avgDemand)} units
 🎯 Confidence level: ${Math.round((result.forecast.confidence || 0.85) * 100)}%
 
 **Key Insights**
 ${(result.forecast.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
 
 Check the **Inventory** tab for stock recommendations.
-        `;
+            `;
+        }
 
         this.addMessage('bot', summary);
 
@@ -550,6 +717,9 @@ Check the **Inventory** tab for stock recommendations.
         this.saveToHistory(result);
     }
 
+    /**
+     * Update forecast statistics display
+     */
     updateForecastStats(forecast) {
         if (!this.elements.forecastStats) return;
 
@@ -590,6 +760,9 @@ Check the **Inventory** tab for stock recommendations.
         `;
     }
 
+    /**
+     * Add message to chat
+     */
     addMessage(role, content) {
         const messagesContainer = this.elements.messagesContainer;
         if (!messagesContainer) return;
@@ -606,6 +779,9 @@ Check the **Inventory** tab for stock recommendations.
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
+    /**
+     * Format markdown text
+     */
     formatMarkdown(text) {
         return text
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -614,7 +790,20 @@ Check the **Inventory** tab for stock recommendations.
             .replace(/\n/g, '<br>');
     }
 
+    /**
+     * Save forecast to history
+     */
     saveToHistory(result) {
+        const days = result.metadata?.forecastPeriods || 30;
+        const years = days / 365;
+        let preview;
+        
+        if (years >= 1) {
+            preview = `${years.toFixed(1)}-Year Strategic Forecast`;
+        } else {
+            preview = `${days}-Day Forecast`;
+        }
+
         const entry = {
             id: Date.now(),
             timestamp: new Date().toISOString(),
@@ -623,7 +812,7 @@ Check the **Inventory** tab for stock recommendations.
                 total: result.forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0,
                 periods: result.forecast.forecast?.length || 0
             },
-            preview: `Forecast: ${result.forecast.forecast?.length || 0} days`
+            preview: preview
         };
         
         this.analysisHistory.unshift(entry);
@@ -636,6 +825,9 @@ Check the **Inventory** tab for stock recommendations.
         this.renderHistory();
     }
 
+    /**
+     * Render history list
+     */
     renderHistory() {
         const historyList = this.elements.analysisHistory;
         if (!historyList) return;
@@ -681,6 +873,9 @@ Check the **Inventory** tab for stock recommendations.
         });
     }
 
+    /**
+     * Load history item
+     */
     loadHistoryItem(index) {
         const entry = this.analysisHistory[index];
         if (entry && entry.sessionId) {
@@ -688,6 +883,9 @@ Check the **Inventory** tab for stock recommendations.
         }
     }
 
+    /**
+     * Load session data
+     */
     async loadSession(sessionId) {
         this.showLoading(true);
 
@@ -714,6 +912,9 @@ Check the **Inventory** tab for stock recommendations.
         }
     }
 
+    /**
+     * Delete history item
+     */
     deleteHistoryItem(index) {
         this.analysisHistory.splice(index, 1);
         localStorage.setItem('forecastHistory', JSON.stringify(this.analysisHistory));
@@ -721,6 +922,9 @@ Check the **Inventory** tab for stock recommendations.
         this.showToast('success', 'Item deleted');
     }
 
+    /**
+     * Clear all history
+     */
     clearAllHistory() {
         this.analysisHistory = [];
         localStorage.setItem('forecastHistory', JSON.stringify([]));
@@ -728,6 +932,9 @@ Check the **Inventory** tab for stock recommendations.
         this.showToast('success', 'All history cleared');
     }
 
+    /**
+     * Load products from API
+     */
     async loadProducts() {
         try {
             const response = await fetch('/api/products');
@@ -741,6 +948,9 @@ Check the **Inventory** tab for stock recommendations.
         }
     }
 
+    /**
+     * Load sample products
+     */
     async loadSampleProducts() {
         try {
             const response = await fetch('/api/sample/products');
@@ -754,6 +964,9 @@ Check the **Inventory** tab for stock recommendations.
         }
     }
 
+    /**
+     * Generate inventory recommendations
+     */
     async generateInventoryRecommendations() {
         if (!this.products || !this.forecastData) return;
 
@@ -793,6 +1006,9 @@ Check the **Inventory** tab for stock recommendations.
         }
     }
 
+    /**
+     * Load sample data
+     */
     loadSampleData() {
         const sampleData = `Date,Product,Sales,Revenue
 2024-01-01,Wireless Headphones,45,4495.50
@@ -811,6 +1027,9 @@ Check the **Inventory** tab for stock recommendations.
         this.showToast('success', 'Sample sales data loaded');
     }
 
+    /**
+     * Reset analysis
+     */
     resetAnalysis() {
         this.currentSessionId = null;
         this.forecastData = null;
@@ -837,6 +1056,9 @@ Check the **Inventory** tab for stock recommendations.
         this.showToast('info', 'New analysis started');
     }
 
+    /**
+     * Switch between tabs
+     */
     switchTab(tab) {
         const tabs = ['forecast', 'inventory', 'scenario'];
         
@@ -854,6 +1076,9 @@ Check the **Inventory** tab for stock recommendations.
         });
     }
 
+    /**
+     * Toggle sidebar
+     */
     toggleSidebar() {
         const sidebar = this.elements.sidebar;
         const overlay = this.elements.sidebarOverlay;
@@ -864,12 +1089,18 @@ Check the **Inventory** tab for stock recommendations.
         }
     }
 
+    /**
+     * Toggle theme
+     */
     toggleTheme() {
         this.isDarkMode = !this.isDarkMode;
         localStorage.setItem('darkMode', this.isDarkMode);
         this.applyTheme();
     }
 
+    /**
+     * Apply theme
+     */
     applyTheme() {
         document.documentElement.setAttribute(
             'data-theme',
@@ -883,6 +1114,9 @@ Check the **Inventory** tab for stock recommendations.
         }
     }
 
+    /**
+     * Update online status
+     */
     updateOnlineStatus(isOnline) {
         const dot = this.elements.statusIndicator?.querySelector('.status-dot');
         if (dot) {
@@ -892,6 +1126,9 @@ Check the **Inventory** tab for stock recommendations.
             isOnline ? 'Back online' : 'You are offline');
     }
 
+    /**
+     * Install PWA
+     */
     async installPWA() {
         if (!this.deferredPrompt) return;
         
@@ -908,12 +1145,18 @@ Check the **Inventory** tab for stock recommendations.
         }
     }
 
+    /**
+     * Show/hide loading overlay
+     */
     showLoading(show) {
         if (this.elements.loadingOverlay) {
             this.elements.loadingOverlay.style.display = show ? 'flex' : 'none';
         }
     }
 
+    /**
+     * Show toast notification
+     */
     showToast(type, message) {
         const container = this.elements.toastContainer;
         if (!container) return;
@@ -949,6 +1192,9 @@ Check the **Inventory** tab for stock recommendations.
         }, 4000);
     }
 
+    /**
+     * Check authentication
+     */
     checkAuthentication() {
         const currentUser = localStorage.getItem('currentUser');
         const currentPath = window.location.pathname;

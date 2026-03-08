@@ -1,10 +1,79 @@
-// server/prompt-templates.js - AI prompt templates for forecasting
+// server/prompt-templates.js - AI prompt templates for forecasting with long-term support
 
 class PromptTemplates {
   /**
    * Get system prompt for forecasting AI
    */
-  getSystemPrompt() {
+  getSystemPrompt(isLongTerm = false) {
+    if (isLongTerm) {
+      return `You are DemandSense AI, an expert supply chain demand forecasting assistant specializing in LONG-TERM strategic forecasting (1-10 years).
+
+Your task is to analyze historical sales data and generate accurate long-term demand forecasts considering:
+- Macroeconomic trends
+- Market growth patterns
+- Industry cycles
+- Technological changes
+- Competitive landscape
+
+For long-term forecasts, focus on:
+- Year-over-year growth rates
+- Multi-year seasonality patterns
+- Strategic inventory planning
+- Capacity planning recommendations
+
+You MUST structure your response in the following format:
+
+# Strategic Long-Term Forecast Summary
+[Brief 2-3 sentence overview of the long-term forecast]
+
+## Key Strategic Metrics
+Total Historical Data Points: [total]
+Historical Period Covered: [date range]
+Forecast Period: [years] years
+Projected CAGR: [percentage]
+Confidence Level: [percentage]
+
+## Strategic Forecast Data
+[Generate forecast for the requested period with these exact fields for each day:
+- date
+- predicted (numeric)
+- upper_bound (numeric, ~15% higher)
+- lower_bound (numeric, ~15% lower)
+]
+
+## Strategic Insights
+- [First strategic insight about long-term trends]
+- [Second strategic insight about market opportunities]
+- [Third strategic insight about risks]
+
+## Strategic Recommendations
+1. [First strategic recommendation for long-term planning]
+2. [Second strategic recommendation for capacity planning]
+3. [Third strategic recommendation for supplier relationships]
+
+## Risk Factors
+- [First long-term risk to monitor]
+- [Second long-term risk to monitor]
+
+CRITICAL: Include a JSON object at the end with the forecast data structure.
+Wrap the JSON in \`\`\`json \`\`\` code blocks:
+
+\`\`\`json
+{
+  "forecast": [
+    {"date": "2025-01-01", "predicted": 125.5, "upper_bound": 144.3, "lower_bound": 106.7},
+    ...
+  ],
+  "insights": ["Strategic insight 1", "Strategic insight 2"],
+  "recommendations": ["Strategic rec 1", "Strategic rec 2"],
+  "confidence": 0.85
+}
+\`\`\`
+
+Use markdown formatting. Be precise with numbers.`;
+    }
+
+    // Short-term forecast prompt (existing)
     return `You are DemandSense AI, an expert supply chain demand forecasting assistant with deep knowledge of inventory optimization, seasonality analysis, and predictive analytics.
 
 Your task is to analyze historical sales data and generate accurate demand forecasts with actionable insights.
@@ -64,7 +133,7 @@ Use markdown formatting. Be precise with numbers.`;
   /**
    * Build forecast prompt with data
    */
-  buildForecastPrompt({ salesData, products, forecastPeriods, confidenceLevel, seasonality, externalFactors }) {
+  buildForecastPrompt({ salesData, products, forecastPeriods, confidenceLevel, seasonality, externalFactors, isLongTerm }) {
     // Prepare sales summary
     const salesSummary = this.prepareSalesSummary(salesData);
     
@@ -73,7 +142,47 @@ Use markdown formatting. Be precise with numbers.`;
       ? products.slice(0, 10).map(p => `${p.name} (${p.category})`).join(', ')
       : 'No product data provided';
 
-    // Build the prompt
+    // Calculate years for long-term forecasts
+    const years = forecastPeriods / 365;
+    const isMultiYear = years >= 1;
+
+    // Build context-appropriate prompt
+    if (isLongTerm || isMultiYear) {
+      return `Generate a LONG-TERM STRATEGIC demand forecast based on the following data:
+
+HISTORICAL SALES DATA (${salesData.length} records):
+${JSON.stringify(salesSummary, null, 2)}
+
+PRODUCT CATALOG (sample):
+${productSummary}
+
+FORECAST PARAMETERS:
+- Forecast Period: ${forecastPeriods} days (${years.toFixed(1)} years)
+- Desired Confidence Level: ${confidenceLevel * 100}%
+${seasonality ? `- Detected Seasonality: ${seasonality.pattern} (strength: ${seasonality.strength})` : '- Seasonality: Not detected'}
+${externalFactors ? `- External Factors: ${JSON.stringify(externalFactors)}` : '- External Factors: Not considered'}
+
+STRATEGIC FORECASTING REQUIREMENTS:
+1. Analyze long-term trends and growth patterns
+2. Consider macroeconomic factors and market conditions
+3. Project demand with appropriate confidence intervals
+4. Provide strategic recommendations for:
+   - Multi-year procurement planning
+   - Warehouse capacity planning
+   - Supplier relationship management
+   - Technology investment timing
+
+FOCUS ON:
+- Year-over-year growth rates
+- Multi-year seasonality
+- Long-term demand patterns
+- Strategic inventory positioning
+- Capacity planning
+
+Return a comprehensive strategic forecast with all required sections.`;
+    }
+
+    // Short-term prompt (existing)
     return `Generate a demand forecast based on the following data:
 
 HISTORICAL SALES DATA (${salesData.length} records):

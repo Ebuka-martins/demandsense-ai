@@ -1,4 +1,4 @@
-// assets/src/forecast-chart.js - Advanced forecast visualizations
+// assets/src/forecast-chart.js - Advanced forecast visualizations with long-term support
 
 class ForecastChartManager {
     constructor(canvasElement) {
@@ -148,6 +148,8 @@ class ForecastChartManager {
      * Get chart options
      */
     getChartOptions(options) {
+        const isLongTerm = options.title?.includes('Year') || options.title?.includes('year') || false;
+        
         return {
             responsive: true,
             maintainAspectRatio: false,
@@ -190,7 +192,13 @@ class ForecastChartManager {
                             let label = context.dataset.label || '';
                             if (label) label += ': ';
                             if (context.parsed.y !== null) {
-                                label += context.parsed.y.toFixed(0);
+                                if (context.parsed.y >= 1000000) {
+                                    label += (context.parsed.y / 1000000).toFixed(1) + 'M';
+                                } else if (context.parsed.y >= 1000) {
+                                    label += (context.parsed.y / 1000).toFixed(1) + 'K';
+                                } else {
+                                    label += context.parsed.y.toFixed(0);
+                                }
                             }
                             return label;
                         }
@@ -207,7 +215,22 @@ class ForecastChartManager {
                     ticks: {
                         color: '#e0e0ff',
                         maxRotation: 45,
-                        maxTicksLimit: 10
+                        maxTicksLimit: isLongTerm ? 12 : 10, // Show fewer ticks for long periods
+                        callback: function(val, index) {
+                            const label = this.getLabelForValue(val);
+                            if (isLongTerm) {
+                                // Show month/year for long-term
+                                const date = new Date(label);
+                                if (!isNaN(date.getTime())) {
+                                    return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                                }
+                            }
+                            // Show abbreviated date for short-term
+                            if (label && label.length > 10) {
+                                return label.substring(5, 10); // Show MM-DD
+                            }
+                            return label;
+                        }
                     }
                 },
                 y: {
@@ -220,6 +243,7 @@ class ForecastChartManager {
                     ticks: {
                         color: '#e0e0ff',
                         callback: (value) => {
+                            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
                             if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
                             return value;
                         }
@@ -228,10 +252,11 @@ class ForecastChartManager {
             },
             elements: {
                 line: {
-                    tension: 0.4
+                    tension: isLongTerm ? 0.2 : 0.4 // Smoother lines for long-term
                 },
                 point: {
-                    hoverRadius: 6
+                    radius: isLongTerm ? 1 : 3, // Smaller points for long-term
+                    hoverRadius: 5
                 }
             }
         };
