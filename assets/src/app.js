@@ -21,10 +21,6 @@
             });
         }
         
-        // Clear specific localStorage items if needed
-        // Don't clear user preferences or history
-        // localStorage.removeItem('some_old_data');
-        
         // Update version
         localStorage.setItem(STORAGE_KEY, APP_VERSION);
     }
@@ -228,7 +224,6 @@ class DemandSenseApp {
                 e.stopPropagation();
                 if (this.elements.welcomeHint) {
                     this.elements.welcomeHint.remove();
-                    // Optional: Store in localStorage that user closed it
                     localStorage.setItem('welcomeHintClosed', 'true');
                 }
             });
@@ -237,7 +232,6 @@ class DemandSenseApp {
         // Make the whole welcome hint clickable to trigger file upload
         if (this.elements.welcomeHint) {
             this.elements.welcomeHint.addEventListener('click', (e) => {
-                // Don't trigger if clicking the close button
                 if (!e.target.closest('#closeWelcomeHint')) {
                     this.elements.fileInput.click();
                 }
@@ -310,11 +304,9 @@ class DemandSenseApp {
             const formData = new FormData();
             formData.append('file', file);
             
-            // Get the selected period value
             const periodSelect = this.elements.forecastPeriod;
             let periodValue = periodSelect ? periodSelect.value : '30';
             
-            // Pass the actual value - backend will map it
             formData.append('periods', periodValue);
 
             const response = await fetch('/api/forecast/generate', {
@@ -328,16 +320,12 @@ class DemandSenseApp {
                 this.currentSessionId = result.sessionId;
                 this.forecastData = result.forecast;
                 
-                // Display forecast with period info
                 this.displayForecast(result);
                 
-                // Load products for inventory
                 await this.loadProducts();
                 
-                // Generate inventory recommendations
                 await this.generateInventoryRecommendations();
                 
-                // Show appropriate success message
                 const days = result.metadata?.forecastPeriods || 30;
                 const years = days / 365;
                 if (years >= 1) {
@@ -433,16 +421,13 @@ class DemandSenseApp {
         this.showLoading(true);
 
         try {
-            // Get session data
             const sessionResponse = await fetch(`/api/forecast/session/${this.currentSessionId}`);
             const sessionResult = await sessionResponse.json();
 
             if (sessionResult.success) {
-                // Get the new period
                 const periodSelect = this.elements.forecastPeriod;
                 const periodValue = periodSelect ? periodSelect.value : '30';
                 
-                // If we have the original file, use it
                 if (this.currentFile) {
                     const formData = new FormData();
                     formData.append('file', this.currentFile);
@@ -509,7 +494,6 @@ class DemandSenseApp {
         this.showLoading(true);
 
         try {
-            // Handle different types of questions
             let response;
             
             if (message.toLowerCase().includes('forecast') || message.toLowerCase().includes('demand')) {
@@ -583,25 +567,41 @@ View the forecast chart above for detailed daily predictions.
         }
 
         const urgent = this.inventoryData.optimalOrders?.filter(o => o.urgent) || [];
+        const critical = this.inventoryData.optimalOrders?.filter(o => o.critical) || [];
+        const highRisk = this.inventoryData.stockoutRisks?.filter(r => r.risk_level === 'high') || [];
         
-        if (urgent.length === 0) {
-            return "✅ Inventory levels look healthy. No urgent reorders needed at this time.";
+        if (urgent.length === 0 && critical.length === 0 && highRisk.length === 0) {
+            return "✅ Inventory levels look healthy. No urgent reorders or high risks detected at this time.";
         }
 
-        return `
-⚠️ **Urgent Inventory Actions**
+        let response = "⚠️ **Inventory Status**\n\n";
+        
+        if (critical.length > 0) {
+            response += `🔴 **Critical Items (Order Immediately)**\n`;
+            critical.slice(0, 3).forEach(o => {
+                response += `- ${o.product_name}: Stock ${o.current_stock}, Order ${o.recommended}\n`;
+            });
+            response += '\n';
+        }
+        
+        if (urgent.length > 0) {
+            response += `🟡 **Urgent Items (Order Soon)**\n`;
+            urgent.slice(0, 3).forEach(o => {
+                response += `- ${o.product_name}: Stock ${o.current_stock}, Order ${o.recommended}\n`;
+            });
+            response += '\n';
+        }
+        
+        if (highRisk.length > 0) {
+            response += `📈 **High Risk Items**\n`;
+            highRisk.slice(0, 3).forEach(r => {
+                response += `- ${r.product_name}: ${Math.round(r.stockout_probability * 100)}% stockout risk\n`;
+            });
+        }
 
-${urgent.slice(0, 3).map(o => `
-**${o.product_name}**
-- Current stock: ${o.current_stock || 0} units
-- Recommended order: ${o.recommended} units
-- ${o.critical ? '🔴 CRITICAL - Order immediately!' : '🟡 Order soon'}
-`).join('\n')}
-
-${urgent.length > 3 ? `\n... and ${urgent.length - 3} more products need attention.` : ''}
-
-Check the Inventory tab for complete details.
-        `;
+        response += `\nCheck the Inventory tab for complete details.`;
+        
+        return response;
     }
 
     /**
@@ -629,7 +629,7 @@ Example: Try a 50% demand increase for 7 days to see stockout risks.
         return `
 I can help you with:
 - 📊 **Demand forecasting** - Upload sales data for predictions (7 days to 10 years)
-- 📦 **Inventory optimization** - Get reorder recommendations
+- 📦 **Inventory optimization** - Get reorder recommendations based on your forecast
 - 🔮 **What-if scenarios** - Simulate business conditions
 - 📈 **Trend analysis** - Understand demand patterns
 
@@ -641,17 +641,14 @@ What would you like to explore? Try asking about forecast, inventory, or scenari
      * Display forecast with appropriate context
      */
     displayForecast(result) {
-        // Hide welcome screen
         if (this.elements.welcomeScreen) {
             this.elements.welcomeScreen.style.display = 'none';
         }
 
-        // Show messages container
         if (this.elements.messagesContainer) {
             this.elements.messagesContainer.style.display = 'block';
         }
 
-        // Update forecast chart with appropriate title
         const days = result.metadata?.forecastPeriods || 30;
         const years = days / 365;
         let title;
@@ -670,10 +667,8 @@ What would you like to explore? Try asking about forecast, inventory, or scenari
             );
         }
 
-        // Update forecast stats
         this.updateForecastStats(result.forecast);
 
-        // Add forecast message with context
         const totalDemand = result.forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
         const avgDemand = totalDemand / days;
         
@@ -707,13 +702,12 @@ This is a strategic forecast for long-term planning. Review and adjust annually.
 **Key Insights**
 ${(result.forecast.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
 
-Check the **Inventory** tab for stock recommendations.
+Check the **Inventory** tab for stock recommendations based on this forecast.
             `;
         }
 
         this.addMessage('bot', summary);
 
-        // Save to history
         this.saveToHistory(result);
     }
 
@@ -942,6 +936,7 @@ Check the **Inventory** tab for stock recommendations.
             
             if (result.success) {
                 this.products = result.products;
+                console.log('Products loaded:', this.products.length);
             }
         } catch (error) {
             console.error('Error loading products:', error);
@@ -958,6 +953,7 @@ Check the **Inventory** tab for stock recommendations.
             
             if (result.success) {
                 this.products = result.data;
+                console.log('Sample products loaded:', this.products.length);
             }
         } catch (error) {
             console.error('Error loading sample products:', error);
@@ -965,45 +961,109 @@ Check the **Inventory** tab for stock recommendations.
     }
 
     /**
-     * Generate inventory recommendations
+     * Generate inventory recommendations using actual forecast data
      */
     async generateInventoryRecommendations() {
-        if (!this.products || !this.forecastData) return;
+        if (!this.products || !this.forecastData) {
+            console.log('⚠️ Cannot generate inventory: missing products or forecast');
+            return;
+        }
 
         this.showLoading(true);
 
         try {
+            // Get sales data from current session if available
+            let salesData = [];
+            if (this.currentSessionId) {
+                try {
+                    const sessionResponse = await fetch(`/api/forecast/session/${this.currentSessionId}`);
+                    const sessionResult = await sessionResponse.json();
+                    if (sessionResult.success) {
+                        salesData = sessionResult.session.salesData || [];
+                        console.log('Sales data loaded:', salesData.length, 'records');
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch session sales data:', e);
+                }
+            }
+
+            console.log('Sending inventory optimization request with:', {
+                products: this.products.length,
+                forecast: this.forecastData ? 'yes' : 'no',
+                salesData: salesData.length
+            });
+
             const response = await fetch('/api/inventory/optimize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     products: this.products,
                     forecast: this.forecastData,
-                    salesData: [] // Would need actual sales data
+                    salesData: salesData,
+                    sessionId: this.currentSessionId
                 })
             });
 
             const result = await response.json();
 
             if (result.success) {
+                // Debug logging
+                console.log('✅ Inventory optimization result:', result);
+                console.log('📊 Health metrics:', result.healthMetrics);
+                console.log('📦 Classified products:', result.classifiedProducts);
+                console.log('⚠️ Stockout risks:', result.stockoutRisks);
+                
                 this.inventoryData = result;
                 
-                // Update inventory dashboard
+                // Update inventory dashboard with real data
                 if (this.inventoryDashboard) {
-                    this.inventoryDashboard.renderOverview(result);
+                    this.inventoryDashboard.renderOverview({
+                        ...result,
+                        products: this.products,
+                        forecast: this.forecastData
+                    });
                 }
 
-                // Initialize what-if panel
-                if (this.whatIfPanel) {
-                    this.whatIfPanel.initialize(this.forecastData, this.products);
+                // Show summary in chat
+                const urgentCount = result.summary?.urgentOrders || 0;
+                const criticalCount = result.summary?.criticalOrders || 0;
+                const highRiskCount = result.summary?.highRiskItems || 0;
+
+                let inventoryMessage = `**Inventory Optimization Complete**\n\n`;
+                inventoryMessage += `📊 **Summary**\n`;
+                inventoryMessage += `- Total Products: ${result.summary?.totalProducts || 0}\n`;
+                inventoryMessage += `- Total Stock Value: $${this.formatNumber(result.summary?.totalValue || 0)}\n\n`;
+
+                if (urgentCount > 0 || criticalCount > 0 || highRiskCount > 0) {
+                    inventoryMessage += `⚠️ **Actions Needed**\n`;
+                    if (criticalCount > 0) inventoryMessage += `- 🔴 Critical orders: ${criticalCount}\n`;
+                    if (urgentCount > 0) inventoryMessage += `- 🟡 Urgent orders: ${urgentCount}\n`;
+                    if (highRiskCount > 0) inventoryMessage += `- 📈 High risk items: ${highRiskCount}\n`;
+                } else {
+                    inventoryMessage += `✅ **All inventory levels are healthy!**\n`;
                 }
+
+                this.addMessage('bot', inventoryMessage);
+                this.showToast('success', 'Inventory optimization complete');
+            } else {
+                console.error('Inventory optimization failed:', result.error);
+                this.showToast('error', result.error || 'Failed to optimize inventory');
             }
 
         } catch (error) {
-            console.error('Inventory optimization error:', error);
+            console.error('❌ Inventory optimization error:', error);
+            this.showToast('error', 'Failed to optimize inventory');
         } finally {
             this.showLoading(false);
         }
+    }
+
+    /**
+     * Format number with commas
+     */
+    formatNumber(num) {
+        if (num === undefined || num === null) return '0';
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
     /**
@@ -1074,6 +1134,15 @@ Check the **Inventory** tab for stock recommendations.
                 tabElement.classList.toggle('active', t === tab);
             }
         });
+
+        // Refresh inventory data when switching to inventory tab
+        if (tab === 'inventory' && this.inventoryData && this.inventoryDashboard) {
+            this.inventoryDashboard.renderOverview({
+                ...this.inventoryData,
+                products: this.products,
+                forecast: this.forecastData
+            });
+        }
     }
 
     /**
