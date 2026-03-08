@@ -13,7 +13,6 @@ class ForecastChartManager {
      */
     initialize() {
         if (!this.canvas) return;
-        
         this.showNoData();
     }
 
@@ -24,7 +23,8 @@ class ForecastChartManager {
         this.forecastData = forecastData;
         this.historicalData = historicalData;
 
-        if (!forecastData || !forecastData.labels) {
+        if (!forecastData || !forecastData.labels || forecastData.labels.length === 0) {
+            console.warn('No forecast data to display');
             this.showNoData();
             return false;
         }
@@ -40,15 +40,29 @@ class ForecastChartManager {
                 this.currentChart.destroy();
             }
 
+            // Calculate reasonable y-axis max
+            const allValues = [
+                ...(forecastData.historical || []),
+                ...(forecastData.forecast || []),
+                ...(forecastData.upperBound || [])
+            ].filter(v => v !== null && v !== undefined);
+            
+            const maxValue = Math.max(...allValues, 1);
+            const yAxisMax = Math.ceil(maxValue * 1.1); // Add 10% padding
+
             this.currentChart = new Chart(ctx, {
                 type: options.chartType || 'line',
                 data: {
                     labels: forecastData.labels,
                     datasets: datasets
                 },
-                options: this.getChartOptions(options)
+                options: this.getChartOptions({
+                    ...options,
+                    yAxisMax
+                })
             });
 
+            console.log('Chart updated with', forecastData.labels.length, 'data points');
             return true;
 
         } catch (error) {
@@ -64,29 +78,30 @@ class ForecastChartManager {
     prepareDatasets(forecastData, options) {
         const datasets = [];
         
-        // Add historical data
-        if (forecastData.datasets) {
-            // Use provided datasets
-            return forecastData.datasets.map(ds => ({
-                ...ds,
-                borderWidth: ds.label?.includes('Confidence') ? 1 : 2,
-                pointRadius: ds.label?.includes('Confidence') ? 0 : 3,
-                pointHoverRadius: 5,
-                tension: 0.4
-            }));
-        }
-
-        // Create default datasets
         const colors = {
             historical: '#ff4d6d',
             forecast: '#ff006e',
             confidence: 'rgba(255, 0, 110, 0.2)'
         };
 
+        // Find the split point between historical and forecast
+        const historicalLength = forecastData.historical?.length || 0;
+        
+        // Create arrays with nulls for proper alignment
+        const historicalWithNulls = [
+            ...(forecastData.historical || []),
+            ...Array(forecastData.forecast?.length || 0).fill(null)
+        ];
+        
+        const forecastWithNulls = [
+            ...Array(historicalLength).fill(null),
+            ...(forecastData.forecast || [])
+        ];
+
         // Historical dataset
         datasets.push({
             label: 'Historical Sales',
-            data: forecastData.historical || [],
+            data: historicalWithNulls,
             borderColor: colors.historical,
             backgroundColor: 'transparent',
             borderWidth: 2,
@@ -95,13 +110,14 @@ class ForecastChartManager {
             pointRadius: 4,
             pointHoverRadius: 6,
             tension: 0.4,
-            fill: false
+            fill: false,
+            order: 1
         });
 
         // Forecast dataset
         datasets.push({
             label: 'Forecast',
-            data: forecastData.forecast || [],
+            data: forecastWithNulls,
             borderColor: colors.forecast,
             backgroundColor: 'transparent',
             borderWidth: 2,
@@ -111,33 +127,48 @@ class ForecastChartManager {
             pointRadius: 4,
             pointHoverRadius: 6,
             tension: 0.4,
-            fill: false
+            fill: false,
+            order: 2
         });
 
         // Confidence interval (if available)
         if (forecastData.upperBound && forecastData.lowerBound) {
+            const upperWithNulls = [
+                ...Array(historicalLength).fill(null),
+                ...(forecastData.upperBound || [])
+            ];
+            
+            const lowerWithNulls = [
+                ...Array(historicalLength).fill(null),
+                ...(forecastData.lowerBound || [])
+            ];
+
+            // Upper bound dataset (for area fill)
             datasets.push({
                 label: 'Confidence Interval',
-                data: forecastData.upperBound,
+                data: upperWithNulls,
                 borderColor: 'rgba(255, 0, 110, 0.3)',
                 backgroundColor: 'rgba(255, 0, 110, 0.1)',
                 borderWidth: 1,
                 borderDash: [2, 2],
                 pointRadius: 0,
                 fill: '+1',
-                tension: 0.4
+                tension: 0.4,
+                order: 3
             });
 
+            // Lower bound dataset
             datasets.push({
                 label: 'Confidence Interval Lower',
-                data: forecastData.lowerBound,
+                data: lowerWithNulls,
                 borderColor: 'rgba(255, 0, 110, 0.3)',
                 backgroundColor: 'transparent',
                 borderWidth: 1,
                 borderDash: [2, 2],
                 pointRadius: 0,
                 fill: false,
-                tension: 0.4
+                tension: 0.4,
+                order: 4
             });
         }
 
@@ -163,7 +194,8 @@ class ForecastChartManager {
                     labels: {
                         color: '#e0e0ff',
                         usePointStyle: true,
-                        pointStyle: 'circle'
+                        pointStyle: 'circle',
+                        filter: (item) => !item.text.includes('Confidence Interval Lower')
                     }
                 },
                 title: {
@@ -215,19 +247,17 @@ class ForecastChartManager {
                     ticks: {
                         color: '#e0e0ff',
                         maxRotation: 45,
-                        maxTicksLimit: isLongTerm ? 12 : 10, // Show fewer ticks for long periods
+                        maxTicksLimit: isLongTerm ? 12 : 15,
                         callback: function(val, index) {
                             const label = this.getLabelForValue(val);
-                            if (isLongTerm) {
-                                // Show month/year for long-term
+                            if (isLongTerm && label) {
                                 const date = new Date(label);
                                 if (!isNaN(date.getTime())) {
                                     return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
                                 }
                             }
-                            // Show abbreviated date for short-term
                             if (label && label.length > 10) {
-                                return label.substring(5, 10); // Show MM-DD
+                                return label.substring(5, 10);
                             }
                             return label;
                         }
@@ -235,6 +265,7 @@ class ForecastChartManager {
                 },
                 y: {
                     beginAtZero: true,
+                    max: options.yAxisMax,
                     grid: {
                         color: 'rgba(255, 255, 255, 0.1)',
                         drawBorder: true,
@@ -252,10 +283,10 @@ class ForecastChartManager {
             },
             elements: {
                 line: {
-                    tension: isLongTerm ? 0.2 : 0.4 // Smoother lines for long-term
+                    tension: isLongTerm ? 0.2 : 0.4
                 },
                 point: {
-                    radius: isLongTerm ? 1 : 3, // Smaller points for long-term
+                    radius: isLongTerm ? 2 : 3,
                     hoverRadius: 5
                 }
             }
@@ -293,7 +324,7 @@ class ForecastChartManager {
                     legend: { display: false },
                     title: {
                         display: true,
-                        text: 'No Forecast Available',
+                        text: 'Upload sales data to generate forecast',
                         color: '#ffffff',
                         font: { size: 16, weight: 'bold' }
                     },

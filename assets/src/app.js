@@ -294,56 +294,61 @@ class DemandSenseApp {
         }
     }
 
-    /**
-     * Analyze uploaded sales file
-     */
-    async analyzeSalesFile(file) {
-        this.showLoading(true);
+/**
+ * Analyze uploaded sales file
+ */
+async analyzeSalesFile(file) {
+    this.showLoading(true);
 
-        try {
-            const formData = new FormData();
-            formData.append('file', file);
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const periodSelect = this.elements.forecastPeriod;
+        let periodValue = periodSelect ? periodSelect.value : '30';
+        
+        formData.append('periods', periodValue);
+
+        const response = await fetch('/api/forecast/generate', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            this.currentSessionId = result.sessionId;
+            this.forecastData = result.forecast;
             
-            const periodSelect = this.elements.forecastPeriod;
-            let periodValue = periodSelect ? periodSelect.value : '30';
-            
-            formData.append('periods', periodValue);
-
-            const response = await fetch('/api/forecast/generate', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                this.currentSessionId = result.sessionId;
-                this.forecastData = result.forecast;
-                
-                this.displayForecast(result);
-                
-                await this.loadProducts();
-                
-                await this.generateInventoryRecommendations();
-                
-                const days = result.metadata?.forecastPeriods || 30;
-                const years = days / 365;
-                if (years >= 1) {
-                    this.showToast('success', `${years.toFixed(1)}-year strategic forecast generated`);
-                } else {
-                    this.showToast('success', `${days}-day forecast generated successfully`);
-                }
-            } else {
-                throw new Error(result.error);
+            // Use products from the forecast response if available
+            if (result.products && result.products.length > 0) {
+                this.products = result.products;
+                console.log('Products from forecast:', this.products);
             }
-
-        } catch (error) {
-            console.error('Analysis error:', error);
-            this.showToast('error', error.message || 'Failed to generate forecast');
-        } finally {
-            this.showLoading(false);
+            
+            this.displayForecast(result);
+            
+            // Generate inventory recommendations using the products from the forecast
+            await this.generateInventoryRecommendations();
+            
+            const days = result.metadata?.forecastPeriods || 30;
+            const years = days / 365;
+            if (years >= 1) {
+                this.showToast('success', `${years.toFixed(1)}-year strategic forecast generated`);
+            } else {
+                this.showToast('success', `${days}-day forecast generated successfully`);
+            }
+        } else {
+            throw new Error(result.error);
         }
+
+    } catch (error) {
+        console.error('Analysis error:', error);
+        this.showToast('error', error.message || 'Failed to generate forecast');
+    } finally {
+        this.showLoading(false);
     }
+}
 
     /**
      * Analyze pasted text data

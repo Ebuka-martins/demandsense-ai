@@ -8,14 +8,13 @@ const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid');
 
 const forecastLogic = require('../../server/forecast-logic');
-const inventoryCalculator = require('../../server/inventory-calculator');
 const seasonalityUtils = require('../../server/seasonality-utils');
 
 // In-memory forecast cache
 const forecastSessions = new Map();
 
 /**
- * Parse uploaded file to JSON
+ * Parse uploaded file to JSON with better handling for different formats
  */
 async function parseFile(filePath, fileExt) {
   return new Promise((resolve, reject) => {
@@ -31,8 +30,29 @@ async function parseFile(filePath, fileExt) {
         const workbook = XLSX.readFile(filePath);
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json(sheet);
-        resolve(data);
+        
+        // Convert to JSON with header row
+        const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        
+        // If we have headers, use them
+        if (data.length > 0) {
+          const headers = data[0];
+          const rows = data.slice(1).map(row => {
+            const obj = {};
+            headers.forEach((header, index) => {
+              // Clean header names
+              const cleanHeader = header.toString()
+                .toLowerCase()
+                .replace(/\s+/g, '_')
+                .replace(/[^a-z0-9_]/g, '');
+              obj[cleanHeader] = row[index];
+            });
+            return obj;
+          });
+          resolve(rows);
+        } else {
+          resolve([]);
+        }
       } catch (error) {
         reject(error);
       }
@@ -68,32 +88,102 @@ router.post('/generate', (req, res) => {
     try {
       // Parse the file
       console.log(`📄 Parsing file: ${req.file.originalname}`);
-      const salesData = await parseFile(filePath, fileExt);
-
-      // Get products data if provided
-      let products = [];
-      if (req.body.products) {
-        try {
-          products = JSON.parse(req.body.products);
-        } catch (e) {
-          console.warn('Could not parse products data');
-        }
+      const rawData = await parseFile(filePath, fileExt);
+      
+      console.log(`📊 Parsed ${rawData.length} rows`);
+      if (rawData.length > 0) {
+        console.log('First row sample:', rawData[0]);
       }
 
-      // Parse options - Handle longer periods
+      // Normalize the data for forecasting
+      const salesData = rawData.map(row => {
+        const normalized = {};
+        
+        // Try to find date field
+        const dateField = Object.keys(row).find(key => 
+          key.includes('date') || key.includes('Date') || key.includes('fecha') || key.includes('time')
+        );
+        if (dateField) {
+          normalized.date = row[dateField];
+        } else {
+          normalized.date = new Date().toISOString().split('T')[0];
+        }
+
+        // Try to find product field
+        const productField = Object.keys(row).find(key => 
+          key.includes('product') || key.includes('Product') || 
+          key.includes('item') || key.includes('sku') || key.includes('name')
+        );
+        if (productField) {
+          normalized.product = row[productField];
+        }
+
+        // Try to find sales/quantity field
+        const salesField = Object.keys(row).find(key => 
+          key.includes('sales') || key.includes('Sales') || 
+          key.includes('quantity') || key.includes('qty') || 
+          key.includes('units') || key.includes('amount')
+        );
+        if (salesField) {
+          normalized.sales = parseFloat(row[salesField]) || 0;
+        } else {
+          // If no sales field, try to find any numeric field
+          const numericField = Object.keys(row).find(key => 
+            !isNaN(parseFloat(row[key])) && !key.includes('date') && !key.includes('id')
+          );
+          if (numericField) {
+            normalized.sales = parseFloat(row[numericField]) || 0;
+          }
+        }
+
+        // Try to find revenue field
+        const revenueField = Object.keys(row).find(key => 
+          key.includes('revenue') || key.includes('Revenue') || 
+          key.includes('total') || key.includes('amount')
+        );
+        if (revenueField) {
+          normalized.revenue = parseFloat(row[revenueField]) || 0;
+        }
+
+        return normalized;
+      }).filter(row => row.sales > 0); // Only keep rows with sales data
+
+      console.log(`📈 Normalized ${salesData.length} rows with sales data`);
+
+      // Extract unique products for inventory
+      const uniqueProducts = [...new Set(salesData
+        .map(row => row.product)
+        .filter(p => p && p.toString().trim())
+      )];
+
+      // Create product catalog from sales data
+      const products = uniqueProducts.map((product, index) => ({
+        id: `P${String(index + 1).padStart(3, '0')}`,
+        name: product.toString().trim(),
+        category: 'General',
+        unit_cost: 10, // Default values - you might want to get these from another source
+        unit_price: 20,
+        current_stock: Math.floor(Math.random() * 100) + 50, // Random stock for demo
+        lead_time_days: 7,
+        reorder_point: 30,
+        safety_stock: 15,
+        max_stock: 500
+      }));
+
+      console.log(`📦 Created ${products.length} products from sales data`);
+
+      // Parse options
       let forecastPeriods = parseInt(req.body.periods) || 30;
       
-      // Map dropdown values to actual days
       const periodMap = {
         '7': 7,
         '30': 30,
         '90': 90,
-        '365': 365,  // 1 year
-        '1825': 1825, // 5 years
-        '3650': 3650  // 10 years
+        '365': 365,
+        '1825': 1825,
+        '3650': 3650
       };
       
-      // If the value is a string key, convert to actual days
       if (typeof req.body.periods === 'string' && periodMap[req.body.periods]) {
         forecastPeriods = periodMap[req.body.periods];
       }
@@ -130,12 +220,13 @@ router.post('/generate', (req, res) => {
       // Clean up uploaded file
       fs.unlinkSync(filePath);
 
-      // Return response
+      // Return response with products included
       res.json({
         success: true,
         sessionId,
         forecast,
         seasonality,
+        products, // Include the generated products
         metadata: {
           dataPoints: salesData.length,
           productsCount: products.length,
@@ -145,9 +236,8 @@ router.post('/generate', (req, res) => {
       });
 
     } catch (error) {
-      console.error('Forecast generation error:', error);
+      console.error('❌ Forecast generation error:', error);
       
-      // Clean up file if it exists
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }

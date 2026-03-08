@@ -328,7 +328,7 @@ class ForecastLogic {
   }
 
   /**
-   * Prepare chart data for visualization
+   * Prepare chart data for visualization - UPDATED VERSION
    */
   prepareChartData(forecastData, historicalData) {
     // Aggregate historical data by date
@@ -345,58 +345,27 @@ class ForecastLogic {
     const lowerBound = [];
 
     // Add historical data
-    historical.forEach((item, index) => {
+    historical.forEach((item) => {
       labels.push(item.date);
       historicalValues.push(item.sales);
     });
 
     // Add forecast data
-    forecast.forEach((item, index) => {
+    forecast.forEach((item) => {
       labels.push(item.date);
       forecastValues.push(item.predicted);
-      upperBound.push(item.upper_bound || item.predicted * 1.1);
-      lowerBound.push(item.lower_bound || item.predicted * 0.9);
+      upperBound.push(item.upper_bound || item.predicted * 1.15);
+      lowerBound.push(item.lower_bound || item.predicted * 0.85);
     });
+
+    console.log(`📊 Chart data prepared: ${historical.length} historical points, ${forecast.length} forecast points`);
 
     return {
       labels,
-      datasets: [
-        {
-          label: 'Historical Sales',
-          data: historicalValues,
-          borderColor: '#ff4d6d',
-          backgroundColor: 'rgba(255, 77, 109, 0.1)',
-          tension: 0.4,
-          fill: false
-        },
-        {
-          label: 'Forecast',
-          data: [...Array(historical.length).fill(null), ...forecastValues],
-          borderColor: '#ff006e',
-          borderDash: [5, 5],
-          backgroundColor: 'rgba(255, 0, 110, 0.1)',
-          tension: 0.4,
-          fill: false
-        },
-        {
-          label: 'Confidence Interval',
-          data: [...Array(historical.length).fill(null), ...upperBound],
-          borderColor: 'rgba(255, 0, 110, 0.3)',
-          backgroundColor: 'rgba(255, 0, 110, 0.1)',
-          borderDash: [2, 2],
-          fill: '+1',
-          pointRadius: 0
-        },
-        {
-          label: 'Confidence Interval Lower',
-          data: [...Array(historical.length).fill(null), ...lowerBound],
-          borderColor: 'rgba(255, 0, 110, 0.3)',
-          backgroundColor: 'transparent',
-          borderDash: [2, 2],
-          fill: false,
-          pointRadius: 0
-        }
-      ]
+      historical: historicalValues,
+      forecast: forecastValues,
+      upperBound,
+      lowerBound
     };
   }
 
@@ -411,6 +380,8 @@ class ForecastLogic {
       if (!date) return;
       
       const sales = parseFloat(row.sales || row.Sales || row.quantity || 0);
+      if (isNaN(sales) || sales === 0) return;
+      
       const key = new Date(date).toISOString().split('T')[0];
       
       if (aggregated.has(key)) {
@@ -420,9 +391,12 @@ class ForecastLogic {
       }
     });
 
-    return Array.from(aggregated.entries())
+    const result = Array.from(aggregated.entries())
       .map(([date, sales]) => ({ date, sales }))
       .sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    console.log(`📅 Aggregated ${result.length} historical data points`);
+    return result;
   }
 
   /**
@@ -524,7 +498,7 @@ class ForecastLogic {
    */
   getUpcomingHolidays() {
     const holidays = [
-      { name: 'New Year\'s Day', date: '2025-01-01', impact: 'high' },
+      { name: "New Year's Day", date: '2025-01-01', impact: 'high' },
       { name: 'Valentine\'s Day', date: '2025-02-14', impact: 'medium' },
       { name: 'Black Friday', date: '2025-11-28', impact: 'high' },
       { name: 'Christmas', date: '2025-12-25', impact: 'high' }
