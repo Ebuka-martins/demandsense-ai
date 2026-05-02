@@ -254,7 +254,7 @@ class DemandSenseApp {
     }
 
     /**
-     * Handle file selection and upload
+     * Handle file selection and upload - NOW ALWAYS ANALYZES ANY FILE
      */
     async handleFileSelect(e) {
         const file = e.target.files[0];
@@ -272,10 +272,8 @@ class DemandSenseApp {
 
         this.showToast('success', `File "${file.name}" selected`);
         
-        // Automatically analyze if it's a sales file
-        if (file.name.includes('sales') || file.name.includes('Sales') || file.name.includes('data')) {
-            this.analyzeSalesFile(file);
-        }
+        // FIXED: ALWAYS analyze any uploaded file, regardless of filename
+        this.analyzeSalesFile(file);
     }
 
     /**
@@ -294,61 +292,79 @@ class DemandSenseApp {
         }
     }
 
-/**
- * Analyze uploaded sales file
- */
-async analyzeSalesFile(file) {
-    this.showLoading(true);
+    /**
+     * Analyze uploaded sales file
+     */
+    async analyzeSalesFile(file) {
+        this.showLoading(true);
 
-    try {
-        const formData = new FormData();
-        formData.append('file', file);
-        
+        // Get the selected forecast period (7, 30, 90 days, 1, 5, 10 years)
         const periodSelect = this.elements.forecastPeriod;
         let periodValue = periodSelect ? periodSelect.value : '30';
         
-        formData.append('periods', periodValue);
-
-        const response = await fetch('/api/forecast/generate', {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            this.currentSessionId = result.sessionId;
-            this.forecastData = result.forecast;
-            
-            // Use products from the forecast response if available
-            if (result.products && result.products.length > 0) {
-                this.products = result.products;
-                console.log('Products from forecast:', this.products);
-            }
-            
-            this.displayForecast(result);
-            
-            // Generate inventory recommendations using the products from the forecast
-            await this.generateInventoryRecommendations();
-            
-            const days = result.metadata?.forecastPeriods || 30;
-            const years = days / 365;
-            if (years >= 1) {
-                this.showToast('success', `${years.toFixed(1)}-year strategic forecast generated`);
-            } else {
-                this.showToast('success', `${days}-day forecast generated successfully`);
-            }
-        } else {
-            throw new Error(result.error);
+        // Convert period values for display
+        let periodDisplay = '';
+        switch(periodValue) {
+            case '7': periodDisplay = '7 days'; break;
+            case '30': periodDisplay = '30 days'; break;
+            case '90': periodDisplay = '90 days'; break;
+            case '365': periodDisplay = '1 year'; break;
+            case '1825': periodDisplay = '5 years'; break;
+            case '3650': periodDisplay = '10 years'; break;
+            default: periodDisplay = `${periodValue} days`;
         }
+        
+        console.log(`📊 Analyzing file "${file.name}" for ${periodDisplay} forecast...`);
+        this.addMessage('bot', `📊 Analyzing your data for a ${periodDisplay} demand forecast...`);
 
-    } catch (error) {
-        console.error('Analysis error:', error);
-        this.showToast('error', error.message || 'Failed to generate forecast');
-    } finally {
-        this.showLoading(false);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('periods', periodValue);
+
+            const response = await fetch('/api/forecast/generate', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.currentSessionId = result.sessionId;
+                this.forecastData = result.forecast;
+                
+                // Use products from the forecast response if available
+                if (result.products && result.products.length > 0) {
+                    this.products = result.products;
+                    console.log('Products from forecast:', this.products);
+                }
+                
+                this.displayForecast(result);
+                
+                // Generate inventory recommendations using the products from the forecast
+                await this.generateInventoryRecommendations();
+                
+                const days = result.metadata?.forecastPeriods || 30;
+                const years = days / 365;
+                if (years >= 1) {
+                    this.showToast('success', `${years.toFixed(1)}-year strategic forecast generated`);
+                    this.addMessage('bot', `✅ ${years.toFixed(1)}-year strategic forecast generated successfully! Check the chart above for long-term projections.`);
+                } else {
+                    this.showToast('success', `${days}-day forecast generated successfully`);
+                    this.addMessage('bot', `✅ ${days}-day forecast generated successfully! Check the chart above for detailed predictions.`);
+                }
+            } else {
+                throw new Error(result.error);
+            }
+
+        } catch (error) {
+            console.error('Analysis error:', error);
+            this.showToast('error', error.message || 'Failed to generate forecast');
+            this.addMessage('bot', `❌ Failed to analyze the file: ${error.message}. Please check that your file has date and sales columns.`);
+        } finally {
+            this.showLoading(false);
+        }
     }
-}
 
     /**
      * Analyze pasted text data
@@ -362,10 +378,11 @@ async analyzeSalesFile(file) {
 
         this.showLoading(true);
 
-        try {
-            const periodSelect = this.elements.forecastPeriod;
-            const periodValue = periodSelect ? periodSelect.value : '30';
+        // Get the selected forecast period
+        const periodSelect = this.elements.forecastPeriod;
+        const periodValue = periodSelect ? periodSelect.value : '30';
 
+        try {
             const response = await fetch('/api/forecast/text', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -423,16 +440,29 @@ async analyzeSalesFile(file) {
             return;
         }
 
+        // Get the selected period
+        const periodSelect = this.elements.forecastPeriod;
+        const periodValue = periodSelect ? periodSelect.value : '30';
+        
+        let periodDisplay = '';
+        switch(periodValue) {
+            case '7': periodDisplay = '7 days'; break;
+            case '30': periodDisplay = '30 days'; break;
+            case '90': periodDisplay = '90 days'; break;
+            case '365': periodDisplay = '1 year'; break;
+            case '1825': periodDisplay = '5 years'; break;
+            case '3650': periodDisplay = '10 years'; break;
+            default: periodDisplay = `${periodValue} days`;
+        }
+        
         this.showLoading(true);
+        this.addMessage('bot', `🔄 Regenerating forecast for ${periodDisplay}...`);
 
         try {
             const sessionResponse = await fetch(`/api/forecast/session/${this.currentSessionId}`);
             const sessionResult = await sessionResponse.json();
 
             if (sessionResult.success) {
-                const periodSelect = this.elements.forecastPeriod;
-                const periodValue = periodSelect ? periodSelect.value : '30';
-                
                 if (this.currentFile) {
                     const formData = new FormData();
                     formData.append('file', this.currentFile);
@@ -447,41 +477,82 @@ async analyzeSalesFile(file) {
                     
                     if (result.success) {
                         this.forecastData = result.forecast;
+                        
+                        // Update products if needed
+                        if (result.products && result.products.length > 0) {
+                            this.products = result.products;
+                        }
+                        
                         this.displayForecast(result);
+                        await this.generateInventoryRecommendations();
                         
                         const days = result.metadata?.forecastPeriods || 30;
                         const years = days / 365;
-                        this.showToast('success', years >= 1 ? 
+                        const successMsg = years >= 1 ? 
                             `Regenerated ${years.toFixed(1)}-year forecast` : 
-                            `Regenerated ${days}-day forecast`);
+                            `Regenerated ${days}-day forecast`;
+                        this.showToast('success', successMsg);
+                        this.addMessage('bot', `✅ ${successMsg} successfully!`);
+                    } else {
+                        throw new Error(result.error);
                     }
                 } else {
                     this.showToast('warning', 'Original data not available for regeneration');
+                    this.addMessage('bot', '⚠️ Original data not available. Please upload the file again.');
                 }
             }
         } catch (error) {
             console.error('Regenerate error:', error);
             this.showToast('error', 'Failed to regenerate forecast');
+            this.addMessage('bot', `❌ Failed to regenerate forecast: ${error.message}`);
         } finally {
             this.showLoading(false);
         }
     }
 
     /**
-     * Export forecast as PDF
+     * Export forecast as PDF with all analysis
      */
     async exportForecast() {
         if (!this.forecastData) {
             this.showToast('warning', 'No forecast data to export');
+            this.addMessage('bot', '⚠️ No forecast data available to export. Please upload data first.');
             return;
         }
 
+        this.showLoading(true);
+        this.addMessage('bot', '📄 Generating your complete PDF report...');
+
         try {
-            await this.pdfExporter.exportForecast(this.forecastData, this.products);
-            this.showToast('success', 'Forecast exported as PDF');
+            // Collect all chat messages for the report
+            const messages = [];
+            const messageElements = this.elements.messagesContainer?.querySelectorAll('.message');
+            
+            if (messageElements) {
+                messageElements.forEach(msg => {
+                    const role = msg.classList.contains('user-message') ? 'user' : 'assistant';
+                    const content = msg.querySelector('.message-content')?.innerText || '';
+                    if (content) {
+                        messages.push({ role, content });
+                    }
+                });
+            }
+            
+            await this.pdfExporter.exportForecast(
+                this.forecastData, 
+                this.products, 
+                this.inventoryData,
+                messages  // Pass the chat messages
+            );
+            
+            this.showToast('success', 'Complete forecast report exported as PDF');
+            this.addMessage('bot', '✅ PDF report exported successfully! Check your downloads folder.');
         } catch (error) {
             console.error('Export error:', error);
-            this.showToast('error', 'Failed to export forecast');
+            this.showToast('error', 'Failed to export PDF');
+            this.addMessage('bot', `❌ Failed to export PDF: ${error.message}`);
+        } finally {
+            this.showLoading(false);
         }
     }
 
@@ -538,8 +609,8 @@ async analyzeSalesFile(file) {
             return `
 **Strategic Forecast Summary (${years.toFixed(1)} Years)**
 
-📊 Total projected demand: ${Math.round(totalDemand)} units
-📈 Average yearly demand: ${Math.round(totalDemand / years)} units
+📊 Total projected demand: ${Math.round(totalDemand).toLocaleString()} units
+📈 Average yearly demand: ${Math.round(totalDemand / years).toLocaleString()} units
 🎯 Confidence level: ${Math.round((this.forecastData.confidence || 0.85) * 100)}%
 
 **Strategic Insights**
@@ -551,8 +622,8 @@ View the forecast chart above for detailed long-term projections.
             return `
 **Demand Forecast Summary (${days} Days)**
 
-📊 Total predicted demand: ${Math.round(totalDemand)} units
-📈 Average daily demand: ${Math.round(avgDemand)} units
+📊 Total predicted demand: ${Math.round(totalDemand).toLocaleString()} units
+📈 Average daily demand: ${Math.round(avgDemand).toLocaleString()} units
 🎯 Confidence level: ${Math.round((this.forecastData.confidence || 0.85) * 100)}%
 
 **Key Insights**
@@ -683,8 +754,8 @@ What would you like to explore? Try asking about forecast, inventory, or scenari
 **${years.toFixed(1)}-Year Strategic Forecast Generated**
 
 📊 Forecast period: ${days} days (${years.toFixed(1)} years)
-📈 Total projected demand: ${Math.round(totalDemand)} units
-📊 Average yearly demand: ${Math.round(totalDemand / years)} units
+📈 Total projected demand: ${Math.round(totalDemand).toLocaleString()} units
+📊 Average yearly demand: ${Math.round(totalDemand / years).toLocaleString()} units
 🎯 Confidence level: ${Math.round((result.forecast.confidence || 0.85) * 100)}%
 
 **Strategic Insights**
@@ -700,8 +771,8 @@ This is a strategic forecast for long-term planning. Review and adjust annually.
 **${days}-Day Demand Forecast Generated**
 
 📊 Forecast period: ${days} days
-📈 Total predicted demand: ${Math.round(totalDemand)} units
-📊 Average daily demand: ${Math.round(avgDemand)} units
+📈 Total predicted demand: ${Math.round(totalDemand).toLocaleString()} units
+📊 Average daily demand: ${Math.round(avgDemand).toLocaleString()} units
 🎯 Confidence level: ${Math.round((result.forecast.confidence || 0.85) * 100)}%
 
 **Key Insights**
@@ -731,21 +802,21 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
             <div class="stat-card">
                 <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
                 <div class="stat-content">
-                    <div class="stat-value">${Math.round(totalDemand)}</div>
+                    <div class="stat-value">${Math.round(totalDemand).toLocaleString()}</div>
                     <div class="stat-label">Total Demand</div>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
                 <div class="stat-content">
-                    <div class="stat-value">${Math.round(avgDemand)}</div>
+                    <div class="stat-value">${Math.round(avgDemand).toLocaleString()}</div>
                     <div class="stat-label">Daily Avg</div>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
                 <div class="stat-content">
-                    <div class="stat-value">${Math.round(peakDemand)}</div>
+                    <div class="stat-value">${Math.round(peakDemand).toLocaleString()}</div>
                     <div class="stat-label">Peak Demand</div>
                 </div>
             </div>
@@ -1119,6 +1190,7 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         this.clearFile();
         
         this.showToast('info', 'New analysis started');
+        this.addMessage('bot', '🔄 Started a new analysis session. Upload a file or paste data to begin.');
     }
 
     /**

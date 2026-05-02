@@ -27,10 +27,12 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
+    "ml-regression": "github:mljs/regression",
     "moment": "^2.29.4",
     "multer": "^2.0.0",
     "object-assign": "^4.1.1",
-    "simple-statistics": "^7.8.3",
+    "regression": "^2.0.1",
+    "simple-statistics": "^7.8.9",
     "uuid": "^9.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz"
   },
