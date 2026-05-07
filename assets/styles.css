@@ -542,6 +542,87 @@ body {
     color: var(--text-muted);
 }
 
+/* Header right section styling */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Logout Button Styles - Top Right */
+.logout-btn {
+    background: linear-gradient(135deg, #ff006e, #ff4d6d);
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 5px rgba(255, 0, 110, 0.3);
+    order: 1; /* Ensures it appears first in the right section */
+}
+
+.logout-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 0, 110, 0.5);
+    background: linear-gradient(135deg, #ff1a7a, #ff6b85);
+}
+
+.logout-btn:active {
+    transform: translateY(0);
+}
+
+.logout-btn i {
+    font-size: 14px;
+}
+
+/* Install button styling */
+.install-btn {
+    order: 2;
+}
+
+/* Theme toggle styling */
+.theme-toggle {
+    order: 3;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .logout-btn span {
+        display: none;
+    }
+    
+    .logout-btn {
+        padding: 8px 12px;
+    }
+    
+    .logout-btn i {
+        font-size: 16px;
+        margin: 0;
+    }
+    
+    .header-right {
+        gap: 5px;
+    }
+}
+
+/* Tablet responsive */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .logout-btn span {
+        display: inline;
+    }
+}
+
+/* Dark mode support */
+[data-theme="dark"] .logout-btn {
+    box-shadow: 0 2px 10px rgba(255, 0, 110, 0.4);
+}
+
 /* -------------------- Main Content -------------------- */
 .main-content {
     flex: 1;

@@ -91,10 +91,8 @@ class DemandSenseApp {
             this.inventoryDashboard = new InventoryDashboard('inventoryPanel');
         }
 
-        // Initialize what-if panel
-        if (this.elements.whatIfPanel) {
-            this.whatIfPanel = new WhatIfPanel('whatIfPanel');
-        }
+        // Initialize what-if panel - USING THE CORRECT CONTAINER ID
+        this.whatIfPanel = new WhatIfPanel('whatIfContainer');
     }
 
     initializeEventListeners() {
@@ -181,6 +179,12 @@ class DemandSenseApp {
             this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
         }
 
+        // Logout button
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => this.logout());
+        }
+
         // Tab switching
         if (this.elements.forecastTab) {
             this.elements.forecastTab.addEventListener('click', () => this.switchTab('forecast'));
@@ -251,6 +255,30 @@ class DemandSenseApp {
                 this.elements.installBtn.addEventListener('click', () => this.installPWA());
             }
         });
+    }
+
+    /**
+     * Logout user
+     */
+    logout() {
+        // Show confirmation dialog
+        if (confirm('Are you sure you want to logout?')) {
+            // Clear all user data from localStorage
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            
+            // Optional: Clear other app data
+            // localStorage.removeItem('forecastHistory');
+            // localStorage.removeItem('app_version');
+            
+            // Show success message
+            this.showToast('success', 'Logged out successfully');
+            
+            // Redirect to login page
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 500);
+        }
     }
 
     /**
@@ -344,6 +372,11 @@ class DemandSenseApp {
                 // Generate inventory recommendations using the products from the forecast
                 await this.generateInventoryRecommendations();
                 
+                // Initialize what-if panel with forecast data
+                if (this.whatIfPanel && this.forecastData) {
+                    this.whatIfPanel.initialize(this.forecastData, this.products);
+                }
+                
                 const days = result.metadata?.forecastPeriods || 30;
                 const years = days / 365;
                 if (years >= 1) {
@@ -402,6 +435,11 @@ class DemandSenseApp {
                 this.displayForecast(result);
                 await this.loadProducts();
                 await this.generateInventoryRecommendations();
+                
+                // Initialize what-if panel with forecast data
+                if (this.whatIfPanel && this.forecastData) {
+                    this.whatIfPanel.initialize(this.forecastData, this.products);
+                }
                 
                 const days = result.metadata?.forecastPeriods || 30;
                 const years = days / 365;
@@ -481,6 +519,11 @@ class DemandSenseApp {
                         // Update products if needed
                         if (result.products && result.products.length > 0) {
                             this.products = result.products;
+                        }
+                        
+                        // Refresh what-if panel with new data
+                        if (this.whatIfPanel && this.forecastData) {
+                            this.whatIfPanel.initialize(this.forecastData, this.products);
                         }
                         
                         this.displayForecast(result);
@@ -744,6 +787,11 @@ What would you like to explore? Try asking about forecast, inventory, or scenari
         }
 
         this.updateForecastStats(result.forecast);
+        
+        // Initialize what-if panel with forecast data
+        if (this.whatIfPanel && result.forecast) {
+            this.whatIfPanel.initialize(result.forecast, this.products);
+        }
 
         const totalDemand = result.forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
         const avgDemand = totalDemand / days;
@@ -972,6 +1020,12 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
                 }
                 
                 this.updateForecastStats(this.forecastData);
+                
+                // Initialize what-if panel with loaded forecast data
+                if (this.whatIfPanel && this.forecastData) {
+                    this.whatIfPanel.initialize(this.forecastData, this.products);
+                }
+                
                 this.showToast('info', 'Loaded historical forecast');
             }
         } catch (error) {
@@ -1083,12 +1137,6 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
             const result = await response.json();
 
             if (result.success) {
-                // Debug logging
-                console.log('✅ Inventory optimization result:', result);
-                console.log('📊 Health metrics:', result.healthMetrics);
-                console.log('📦 Classified products:', result.classifiedProducts);
-                console.log('⚠️ Stockout risks:', result.stockoutRisks);
-                
                 this.inventoryData = result;
                 
                 // Update inventory dashboard with real data
@@ -1219,6 +1267,11 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
                 products: this.products,
                 forecast: this.forecastData
             });
+        }
+        
+        // Refresh what-if panel when switching to scenario tab
+        if (tab === 'scenario' && this.whatIfPanel && this.forecastData) {
+            this.whatIfPanel.initialize(this.forecastData, this.products);
         }
     }
 
