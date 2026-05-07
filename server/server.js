@@ -9,6 +9,21 @@ const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 
+// Try to import open with proper handling for different versions
+let open;
+try {
+    // For newer versions of open (v9+)
+    open = require('open');
+    // Check if it's a default export
+    if (open && typeof open !== 'function' && open.default) {
+        open = open.default;
+    }
+} catch (err) {
+    console.warn('⚠️  "open" package not installed. Browser will not open automatically.');
+    console.log('💡 Run: npm install open');
+    open = null;
+}
+
 // ==========================
 // Enhanced Environment Variable Loading
 // ==========================
@@ -133,11 +148,60 @@ app.use('/icons', express.static(path.join(__dirname, '../assets', 'icons'), {
     }
 }));
 
+// ==========================
+// FAVICON FIXES - Serve favicon files correctly
+// ==========================
+
+// Serve favicon subdirectory for additional favicon files
 app.use('/favicon', express.static(path.join(__dirname, '../assets', 'favicon'), {
     setHeaders: (res) => {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
 }));
+
+// Serve root favicon.ico specifically
+app.get('/favicon.ico', (req, res) => {
+    const faviconPath = path.join(__dirname, '../assets', 'favicon.ico');
+    const faviconSubPath = path.join(__dirname, '../assets', 'favicon', 'favicon.ico');
+    
+    // Check if favicon.ico exists in root assets
+    if (fs.existsSync(faviconPath)) {
+        res.sendFile(faviconPath, {
+            headers: {
+                'Content-Type': 'image/x-icon',
+                'Cache-Control': 'public, max-age=31536000, immutable'
+            }
+        });
+    } 
+    // Otherwise serve from favicon subfolder
+    else if (fs.existsSync(faviconSubPath)) {
+        res.sendFile(faviconSubPath, {
+            headers: {
+                'Content-Type': 'image/x-icon',
+                'Cache-Control': 'public, max-age=31536000, immutable'
+            }
+        });
+    }
+    else {
+        // Return 204 No Content if no favicon exists (prevents 404 errors)
+        res.status(204).end();
+    }
+});
+
+// Serve apple-touch-icon for iOS devices
+app.get('/apple-touch-icon.png', (req, res) => {
+    const appleIconPath = path.join(__dirname, '../assets', 'favicon', 'apple-touch-icon.png');
+    if (fs.existsSync(appleIconPath)) {
+        res.sendFile(appleIconPath, {
+            headers: {
+                'Content-Type': 'image/png',
+                'Cache-Control': 'public, max-age=31536000, immutable'
+            }
+        });
+    } else {
+        res.status(204).end();
+    }
+});
 
 // ==========================
 // Ensure uploads directory exists
@@ -326,9 +390,9 @@ app.use('/api/*', (req, res) => {
 });
 
 // ==========================
-// Start server
+// Start server with auto-open browser
 // ==========================
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log('\n' + '='.repeat(50));
   console.log(`🚀 DemandSense AI v1.0.1`);
   console.log('='.repeat(50));
@@ -341,4 +405,38 @@ app.listen(PORT, () => {
   console.log(`🤖 AI Features: ${process.env.GROQ_API_KEY || process.env.DEEPSEEK_API_KEY ? '✅ Enabled' : '⚠️  Disabled (mock mode)'}`);
   console.log(`🎨 Theme: Neon Pink/Red`);
   console.log('='.repeat(50) + '\n');
+  
+  // Auto-open browser in development mode only
+  if (NODE_ENV !== 'production' && open) {
+    // Small delay to ensure server is fully ready
+    setTimeout(() => {
+      console.log('🌐 Opening browser to http://localhost:' + PORT + '/login');
+      
+      // Use the correct function call based on open version
+      const openFunction = typeof open === 'function' ? open : (open.default || open);
+      
+      openFunction('http://localhost:' + PORT + '/login', { app: { name: 'chrome' } })
+        .then(() => {
+          console.log('✅ Browser opened successfully');
+        })
+        .catch(err => {
+          console.warn('⚠️  Could not open browser automatically:', err.message);
+          console.log('💡 Please manually open http://localhost:' + PORT + '/login in Chrome');
+        });
+    }, 500);
+  } else if (!open) {
+    console.log('💡 Tip: Install "open" package for automatic browser opening: npm install open');
+    console.log('🌐 Please manually open http://localhost:' + PORT + '/login in Chrome');
+  }
 });
+
+// Handle graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n🛑 Shutting down server gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+module.exports = app;
