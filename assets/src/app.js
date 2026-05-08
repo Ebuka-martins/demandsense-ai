@@ -179,11 +179,9 @@ class DemandSenseApp {
             this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
         }
 
-        // Logout button
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => this.logout());
-        }
+        // IMPORTANT: DO NOT add logout event listener here anymore
+        // The logout modal will handle it automatically
+        // The logout button listener is now in logout-modal.js
 
         // Tab switching
         if (this.elements.forecastTab) {
@@ -258,27 +256,15 @@ class DemandSenseApp {
     }
 
     /**
-     * Logout user
+     * Logout user - Now handled by LogoutManager in logout-modal.js
+     * This method is kept as a placeholder but no longer has any logout logic
+     * The actual logout is handled by the beautiful neon-styled modal
      */
     logout() {
-        // Show confirmation dialog
-        if (confirm('Are you sure you want to logout?')) {
-            // Clear all user data from localStorage
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('currentUser');
-            
-            // Optional: Clear other app data
-            // localStorage.removeItem('forecastHistory');
-            // localStorage.removeItem('app_version');
-            
-            // Show success message
-            this.showToast('success', 'Logged out successfully');
-            
-            // Redirect to login page
-            setTimeout(() => {
-                window.location.href = '/login';
-            }, 500);
-        }
+        // This method is intentionally left empty
+        // The logout functionality is now handled by LogoutManager class in logout-modal.js
+        // which shows a beautiful confirmation modal instead of browser's default confirm dialog
+        console.log('Logout handled by modal - no default browser dialog will appear');
     }
 
     /**

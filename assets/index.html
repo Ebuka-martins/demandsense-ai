@@ -297,6 +297,30 @@
     
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
+
+     <!-- Logout Confirmation Modal -->
+    <div id="logoutModal" class="logout-modal" style="display: none;">
+        <div class="logout-modal-overlay"></div>
+        <div class="logout-modal-container">
+            <div class="logout-modal-content">
+                <div class="logout-modal-icon">
+                    <i class="fas fa-sign-out-alt"></i>
+                </div>
+                <h3 class="logout-modal-title">Are you sure you want to logout?</h3>
+                <p class="logout-modal-message">You will need to sign in again to access your account and all your data will be saved.</p>
+                <div class="logout-modal-buttons">
+                    <button class="logout-modal-btn logout-modal-cancel" id="cancelLogoutBtn">
+                        <i class="fas fa-times"></i>
+                        <span>Cancel</span>
+                    </button>
+                    <button class="logout-modal-btn logout-modal-confirm" id="confirmLogoutBtn">
+                        <i class="fas fa-check"></i>
+                        <span>Yes, Logout</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <!-- Cache Buster - Must be first script -->
     <script src="/src/cache-buster.js?v=1.0.1"></script>
@@ -308,6 +332,7 @@
     <script src="/src/inventory-dashboard.js?v=1.0.1"></script>
     <script src="/src/what-if-panel.js?v=1.0.1"></script>
     <script src="/src/api.js?v=1.0.1"></script>
+    <script src="/src/logout-modal.js?v=1.0.1"></script>
     <script src="/src/app.js?v=1.0.1"></script>
     
     <!-- Service Worker Registration -->
