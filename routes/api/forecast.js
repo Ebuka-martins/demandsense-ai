@@ -252,51 +252,250 @@ router.post('/generate', (req, res) => {
 
 /**
  * POST /api/forecast/text
- * Generate forecast from pasted text data - Handle longer periods
+ * Generate forecast from pasted text data - FIXED VERSION
  */
 router.post('/text', async (req, res) => {
   const { text, products, periods = 30, confidence = 0.95, sessionId } = req.body;
 
-  if (!text) {
+  if (!text || !text.trim()) {
     return res.status(400).json({ success: false, error: 'No data provided' });
   }
 
   const newSessionId = sessionId || uuidv4();
 
   try {
-    // Parse the text data
-    let salesData;
+    // Parse the text data - IMPROVED CSV HANDLING
+    let salesData = [];
+    let parseError = null;
+    
+    // Try to parse as CSV first
     try {
-      // Try to parse as JSON first
-      salesData = JSON.parse(text);
-    } catch {
-      // Try to parse as CSV
-      const lines = text.split('\n').filter(l => l.trim());
-      const headers = lines[0].split(',').map(h => h.trim());
+      const lines = text.trim().split('\n').filter(l => l.trim());
+      if (lines.length < 2) {
+        throw new Error('Need at least 2 rows (header + data)');
+      }
       
-      salesData = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim());
-        const obj = {};
-        headers.forEach((h, i) => {
-          obj[h] = values[i] || '';
-        });
-        return obj;
+      // Parse headers
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      
+      // Validate required columns exist
+      const hasDateColumn = headers.some(h => h.includes('date') || h === 'date');
+      const hasSalesColumn = headers.some(h => 
+        h.includes('sales') || 
+        h.includes('demand') || 
+        h.includes('quantity') || 
+        h.includes('qty') ||
+        h === 'sales'
+      );
+      
+      if (!hasDateColumn || !hasSalesColumn) {
+        // Try without headers - assume first row is data
+        console.log('No valid headers found, trying without header row...');
+        
+        // Use default headers
+        const defaultHeaders = ['date', 'sales'];
+        
+        for (let i = 0; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim());
+          if (values.length >= 2 && values[0] && !isNaN(parseFloat(values[1]))) {
+            const row = {};
+            defaultHeaders.forEach((header, idx) => {
+              row[header] = values[idx] || '';
+            });
+            salesData.push(row);
+          }
+        }
+        
+        if (salesData.length === 0) {
+          throw new Error('Could not parse data. Please ensure format: Date,Sales\n2024-01-01,100');
+        }
+      } else {
+        // Parse with headers
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim());
+          if (values.length >= headers.length) {
+            const row = {};
+            headers.forEach((header, idx) => {
+              let value = values[idx] || '';
+              // Clean up values
+              if (header.includes('date')) {
+                // Validate date format
+                if (!value.match(/^\d{4}-\d{2}-\d{2}/) && value) {
+                  console.warn(`Invalid date format: ${value}`);
+                }
+              }
+              if (header.includes('sales') || header.includes('demand') || header.includes('quantity')) {
+                value = parseFloat(value);
+                if (isNaN(value)) value = 0;
+              }
+              row[header] = value;
+            });
+            
+            // Only add if date and sales exist
+            if (row.date && row.sales && row.sales > 0) {
+              salesData.push(row);
+            }
+          }
+        }
+      }
+      
+      console.log(`📊 Parsed ${salesData.length} rows from pasted data`);
+      
+    } catch (csvError) {
+      console.error('CSV parsing error:', csvError);
+      parseError = csvError.message;
+      
+      // Try JSON parsing as fallback
+      try {
+        const jsonData = JSON.parse(text);
+        salesData = Array.isArray(jsonData) ? jsonData : [jsonData];
+        console.log(`📊 Parsed ${salesData.length} rows as JSON`);
+        parseError = null;
+      } catch (jsonError) {
+        // Keep the CSV error
+      }
+    }
+    
+    if (parseError) {
+      return res.status(400).json({
+        success: false,
+        error: `CSV Parsing Error: ${parseError}. Please use format:\nDate,Sales\n2024-01-01,100\n2024-01-02,150`
+      });
+    }
+    
+    if (salesData.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid data rows found. Please ensure your data has Date and Sales columns with valid values.'
       });
     }
 
-    // Ensure it's an array
-    if (!Array.isArray(salesData)) {
-      salesData = [salesData];
+    // Validate and normalize the data
+    const normalizedData = [];
+    let dateErrors = [];
+    let salesErrors = [];
+    
+    for (const row of salesData) {
+      try {
+        const normalized = {};
+        
+        // Find date field
+        const dateField = Object.keys(row).find(key => 
+          key.toLowerCase().includes('date') || key === 'date'
+        );
+        if (dateField) {
+          normalized.date = row[dateField];
+          // Validate date format
+          if (!normalized.date || !normalized.date.toString().match(/^\d{4}-\d{2}-\d{2}/)) {
+            dateErrors.push(normalized.date);
+            continue;
+          }
+        } else {
+          dateErrors.push('missing');
+          continue;
+        }
+
+        // Find sales field
+        const salesField = Object.keys(row).find(key => 
+          key.toLowerCase().includes('sales') || 
+          key.toLowerCase().includes('demand') || 
+          key.toLowerCase().includes('quantity') ||
+          key === 'sales'
+        );
+        if (salesField) {
+          normalized.sales = parseFloat(row[salesField]);
+          if (isNaN(normalized.sales) || normalized.sales <= 0) {
+            salesErrors.push(row[salesField]);
+            continue;
+          }
+        } else {
+          salesErrors.push('missing');
+          continue;
+        }
+
+        // Optional: product field
+        const productField = Object.keys(row).find(key => 
+          key.toLowerCase().includes('product') || 
+          key.toLowerCase().includes('item') || 
+          key.toLowerCase().includes('sku')
+        );
+        if (productField) {
+          normalized.product = row[productField];
+        }
+
+        normalizedData.push(normalized);
+      } catch (rowError) {
+        console.warn('Error processing row:', rowError);
+      }
+    }
+
+    console.log(`✅ Validated ${normalizedData.length} rows of sales data`);
+    
+    if (dateErrors.length > 0) {
+      console.warn(`Date errors: ${dateErrors.length} rows have invalid dates`);
+    }
+    if (salesErrors.length > 0) {
+      console.warn(`Sales errors: ${salesErrors.length} rows have invalid sales values`);
+    }
+    
+    if (normalizedData.length === 0) {
+      let errorMsg = 'No valid data rows found. ';
+      if (dateErrors.length > 0) errorMsg += `${dateErrors.length} rows have invalid dates. `;
+      if (salesErrors.length > 0) errorMsg += `${salesErrors.length} rows have invalid sales values. `;
+      errorMsg += 'Please ensure dates are in YYYY-MM-DD format and sales are positive numbers.';
+      
+      return res.status(400).json({
+        success: false,
+        error: errorMsg
+      });
     }
 
     // Parse products if provided
     let productData = [];
     if (products) {
       try {
-        productData = JSON.parse(products);
+        productData = typeof products === 'string' ? JSON.parse(products) : products;
       } catch (e) {
-        console.warn('Could not parse products');
+        console.warn('Could not parse products, using default');
       }
+    }
+
+    // If no products provided, create from sales data
+    if (productData.length === 0 && normalizedData.length > 0) {
+      const uniqueProducts = [...new Set(normalizedData
+        .map(row => row.product)
+        .filter(p => p && p.toString().trim())
+      )];
+      
+      if (uniqueProducts.length === 0) {
+        // No product info, create a default product
+        productData = [{
+          id: 'P001',
+          name: 'Default Product',
+          category: 'General',
+          unit_cost: 10,
+          unit_price: 20,
+          current_stock: 100,
+          lead_time_days: 7,
+          reorder_point: 30,
+          safety_stock: 15,
+          max_stock: 500
+        }];
+      } else {
+        productData = uniqueProducts.map((product, index) => ({
+          id: `P${String(index + 1).padStart(3, '0')}`,
+          name: product.toString().trim(),
+          category: 'General',
+          unit_cost: 10,
+          unit_price: 20,
+          current_stock: Math.floor(Math.random() * 100) + 50,
+          lead_time_days: 7,
+          reorder_point: 30,
+          safety_stock: 15,
+          max_stock: 500
+        }));
+      }
+      console.log(`📦 Created ${productData.length} products from pasted data`);
     }
 
     // Handle period mapping
@@ -314,43 +513,66 @@ router.post('/text', async (req, res) => {
       forecastPeriods = periodMap[periods];
     }
 
+    console.log(`🔮 Generating ${forecastPeriods}-day forecast from ${normalizedData.length} data points...`);
+
     // Generate forecast
-    const forecast = await forecastLogic.generateForecast(salesData, productData, {
+    const forecast = await forecastLogic.generateForecast(normalizedData, productData, {
       forecastPeriods: forecastPeriods,
-      confidenceLevel: confidence,
+      confidenceLevel: parseFloat(confidence) || 0.95,
       cacheKey: newSessionId
     });
 
     // Detect seasonality
-    const seasonality = await seasonalityUtils.detectSeasonality(salesData);
+    const seasonality = await seasonalityUtils.detectSeasonality(normalizedData);
 
     // Store session
     forecastSessions.set(newSessionId, {
-      salesData,
+      salesData: normalizedData,
       products: productData,
       forecast,
       seasonality,
       timestamp: Date.now()
     });
 
+    // Clean up old sessions (keep last 50)
+    if (forecastSessions.size > 50) {
+      const oldest = Array.from(forecastSessions.keys())
+        .map(key => ({ key, timestamp: forecastSessions.get(key).timestamp }))
+        .sort((a, b) => a.timestamp - b.timestamp)[0];
+      if (oldest) {
+        forecastSessions.delete(oldest.key);
+      }
+    }
+
     res.json({
       success: true,
       sessionId: newSessionId,
       forecast,
       seasonality,
+      products: productData, // Include products in response
       metadata: {
-        dataPoints: salesData.length,
+        dataPoints: normalizedData.length,
         productsCount: productData.length,
         generatedAt: new Date().toISOString(),
-        forecastPeriods: forecastPeriods
+        forecastPeriods: forecastPeriods,
+        dataSource: 'pasted_text'
       }
     });
 
   } catch (error) {
-    console.error('Text forecast error:', error);
+    console.error('❌ Text forecast error:', error);
+    
+    // Send detailed error message
+    let errorMessage = error.message;
+    if (errorMessage.toLowerCase().includes('date')) {
+      errorMessage = 'Date format error: Please use YYYY-MM-DD format (e.g., 2024-01-15)';
+    } else if (errorMessage.toLowerCase().includes('sales')) {
+      errorMessage = 'Sales data error: Please ensure sales values are numbers';
+    }
+    
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to generate forecast from text'
+      error: errorMessage
     });
   }
 });

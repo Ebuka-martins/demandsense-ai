@@ -1,6 +1,9 @@
-// assets/src/app.js - Main application for DemandSense AI
+// assets/src/app.js - DemandSense AI Main Application
+// Version: 1.0.1
 
-// Cache buster - runs before everything
+// ============================================
+// CACHE MANAGEMENT
+// ============================================
 (function() {
     const APP_VERSION = '1.0.1';
     const STORAGE_KEY = 'app_version';
@@ -9,7 +12,6 @@
     if (lastVersion !== APP_VERSION) {
         console.log(`🔄 Updating from v${lastVersion} to v${APP_VERSION}`);
         
-        // Clear all caches
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(key => {
@@ -21,13 +23,19 @@
             });
         }
         
-        // Update version
         localStorage.setItem(STORAGE_KEY, APP_VERSION);
     }
 })();
 
+// ============================================
+// MAIN APPLICATION CLASS
+// ============================================
 class DemandSenseApp {
+    // ----------------------------
+    // Constructor & Initialization
+    // ----------------------------
     constructor() {
+        // Core data
         this.api = new DemandSenseAPI();
         this.currentSessionId = null;
         this.currentFile = null;
@@ -37,21 +45,20 @@ class DemandSenseApp {
         this.isDarkMode = localStorage.getItem('darkMode') === 'true';
         this.analysisHistory = JSON.parse(localStorage.getItem('forecastHistory')) || [];
         
-        // Managers
+        // UI Managers
         this.forecastChart = null;
         this.inventoryDashboard = null;
         this.whatIfPanel = null;
         this.dataValidator = new DataValidator();
         this.pdfExporter = new PDFExporter();
         
-        // Elements
+        // DOM Elements
         this.elements = {};
+        
+        // Initialize
         this.initializeElements();
         
-        // Check authentication
-        if (!this.checkAuthentication()) {
-            return;
-        }
+        if (!this.checkAuthentication()) return;
         
         this.applyTheme();
         this.initializeManagers();
@@ -62,68 +69,97 @@ class DemandSenseApp {
         console.log('✅ DemandSense AI v1.0.1 initialized');
     }
 
+    // ----------------------------
+    // DOM Element Management
+    // ----------------------------
     initializeElements() {
-        const ids = [
-            'sidebar', 'menuToggle', 'sidebarClose', 'sidebarOverlay', 'newAnalysis',
-            'fileInput', 'uploadBtn', 'dataInput', 'analyzePaste', 'analysisHistory',
-            'clearAllHistory', 'statusIndicator', 'welcomeScreen', 'messagesContainer', 
-            'chatContainer', 'dataChart', 'messageInput', 'sendBtn', 'fileIndicator', 
-            'fileName', 'clearFile', 'quickUpload', 'quickPaste', 'quickSample', 
-            'loadingOverlay', 'installBtn', 'themeToggle', 'toastContainer', 
-            'inventoryPanel', 'whatIfPanel', 'forecastTab', 'inventoryTab', 'scenarioTab',
-            'forecastPeriod', 'exportForecast', 'forecastStats', 'welcomeHint', 'closeWelcomeHint'
+        const elementIds = [
+            // Layout
+            'sidebar', 'menuToggle', 'sidebarClose', 'sidebarOverlay',
+            // Main controls
+            'newAnalysis', 'fileInput', 'uploadBtn', 'dataInput', 'analyzePaste',
+            // Chat & messages
+            'analysisHistory', 'clearAllHistory', 'statusIndicator', 'welcomeScreen',
+            'messagesContainer', 'chatContainer', 'dataChart', 'messageInput', 'sendBtn',
+            // File management
+            'fileIndicator', 'fileName', 'clearFile',
+            // Quick actions
+            'quickUpload', 'quickPaste', 'quickSample',
+            // UI overlays
+            'loadingOverlay', 'installBtn', 'themeToggle', 'toastContainer',
+            // Panels
+            'inventoryPanel', 'whatIfPanel',
+            // Tabs
+            'forecastTab', 'inventoryTab', 'scenarioTab',
+            // Forecast controls
+            'forecastPeriod', 'exportForecast', 'forecastStats',
+            // Welcome hint
+            'welcomeHint', 'closeWelcomeHint'
         ];
 
-        ids.forEach(id => {
+        elementIds.forEach(id => {
             this.elements[id] = document.getElementById(id);
         });
     }
 
+    // ----------------------------
+    // Manager Initialization
+    // ----------------------------
     initializeManagers() {
-        // Initialize forecast chart
+        // Forecast chart
         if (this.elements.dataChart) {
             this.forecastChart = new ForecastChartManager(this.elements.dataChart);
             this.forecastChart.initialize();
         }
 
-        // Initialize inventory dashboard
+        // Inventory dashboard
         if (this.elements.inventoryPanel) {
             this.inventoryDashboard = new InventoryDashboard('inventoryPanel');
         }
 
-        // Initialize what-if panel - USING THE CORRECT CONTAINER ID
+        // What-if panel
         this.whatIfPanel = new WhatIfPanel('whatIfContainer');
     }
 
+    // ----------------------------
+    // Event Listeners
+    // ----------------------------
     initializeEventListeners() {
-        // Menu toggle
-        if (this.elements.menuToggle) {
-            this.elements.menuToggle.addEventListener('click', () => this.toggleSidebar());
-        }
+        this.initializeMenuListeners();
+        this.initializeFileListeners();
+        this.initializeChatListeners();
+        this.initializeQuickActionListeners();
+        this.initializeTabListeners();
+        this.initializeForecastListeners();
+        this.initializeSystemListeners();
+    }
 
-        // Sidebar close
-        if (this.elements.sidebarClose) {
-            this.elements.sidebarClose.addEventListener('click', () => this.toggleSidebar());
-        }
-
-        // Overlay click
-        if (this.elements.sidebarOverlay) {
-            this.elements.sidebarOverlay.addEventListener('click', () => this.toggleSidebar());
-        }
+    initializeMenuListeners() {
+        // Sidebar toggle
+        const toggleElements = ['menuToggle', 'sidebarClose', 'sidebarOverlay'];
+        toggleElements.forEach(id => {
+            if (this.elements[id]) {
+                this.elements[id].addEventListener('click', () => this.toggleSidebar());
+            }
+        });
 
         // New analysis
         if (this.elements.newAnalysis) {
             this.elements.newAnalysis.addEventListener('click', () => this.resetAnalysis());
         }
 
-        // File upload
-        if (this.elements.uploadBtn) {
+        // Theme toggle
+        if (this.elements.themeToggle) {
+            this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
+        }
+    }
+
+    initializeFileListeners() {
+        // Upload button
+        if (this.elements.uploadBtn && this.elements.fileInput) {
             this.elements.uploadBtn.addEventListener('click', () => {
                 this.elements.fileInput.click();
             });
-        }
-
-        if (this.elements.fileInput) {
             this.elements.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         }
 
@@ -132,16 +168,19 @@ class DemandSenseApp {
             this.elements.clearFile.addEventListener('click', () => this.clearFile());
         }
 
-        // Analyze paste
+        // Analyze pasted data
         if (this.elements.analyzePaste) {
             this.elements.analyzePaste.addEventListener('click', () => this.analyzePastedData());
         }
+    }
 
-        // Send message
+    initializeChatListeners() {
+        // Send message button
         if (this.elements.sendBtn) {
             this.elements.sendBtn.addEventListener('click', () => this.sendMessage());
         }
 
+        // Enter key in message input
         if (this.elements.messageInput) {
             this.elements.messageInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -156,58 +195,26 @@ class DemandSenseApp {
                 this.elements.messageInput.style.height = this.elements.messageInput.scrollHeight + 'px';
             });
         }
+    }
 
-        // Quick actions
-        if (this.elements.quickUpload) {
+    initializeQuickActionListeners() {
+        // Quick upload
+        if (this.elements.quickUpload && this.elements.fileInput) {
             this.elements.quickUpload.addEventListener('click', () => {
                 this.elements.fileInput.click();
             });
         }
 
-        if (this.elements.quickPaste) {
+        // Quick paste
+        if (this.elements.quickPaste && this.elements.dataInput) {
             this.elements.quickPaste.addEventListener('click', () => {
-                this.elements.dataInput?.focus();
+                this.elements.dataInput.focus();
             });
         }
 
+        // Quick sample
         if (this.elements.quickSample) {
             this.elements.quickSample.addEventListener('click', () => this.loadSampleData());
-        }
-
-        // Theme toggle
-        if (this.elements.themeToggle) {
-            this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
-        }
-
-        // IMPORTANT: DO NOT add logout event listener here anymore
-        // The logout modal will handle it automatically
-        // The logout button listener is now in logout-modal.js
-
-        // Tab switching
-        if (this.elements.forecastTab) {
-            this.elements.forecastTab.addEventListener('click', () => this.switchTab('forecast'));
-        }
-
-        if (this.elements.inventoryTab) {
-            this.elements.inventoryTab.addEventListener('click', () => this.switchTab('inventory'));
-        }
-
-        if (this.elements.scenarioTab) {
-            this.elements.scenarioTab.addEventListener('click', () => this.switchTab('scenario'));
-        }
-
-        // Forecast period change
-        if (this.elements.forecastPeriod) {
-            this.elements.forecastPeriod.addEventListener('change', () => {
-                this.handlePeriodChange();
-            });
-        }
-
-        // Export forecast
-        if (this.elements.exportForecast) {
-            this.elements.exportForecast.addEventListener('click', () => {
-                this.exportForecast();
-            });
         }
 
         // Clear all history
@@ -218,8 +225,46 @@ class DemandSenseApp {
                 }
             });
         }
+    }
 
-        // Close welcome hint button
+    initializeTabListeners() {
+        const tabs = ['forecast', 'inventory', 'scenario'];
+        tabs.forEach(tab => {
+            const tabElement = this.elements[`${tab}Tab`];
+            if (tabElement) {
+                tabElement.addEventListener('click', () => this.switchTab(tab));
+            }
+        });
+    }
+
+    initializeForecastListeners() {
+        // Forecast period change
+        if (this.elements.forecastPeriod) {
+            this.elements.forecastPeriod.addEventListener('change', () => this.handlePeriodChange());
+        }
+
+        // Export forecast
+        if (this.elements.exportForecast) {
+            this.elements.exportForecast.addEventListener('click', () => this.exportForecast());
+        }
+    }
+
+    initializeSystemListeners() {
+        // Online/offline status
+        window.addEventListener('online', () => this.updateOnlineStatus(true));
+        window.addEventListener('offline', () => this.updateOnlineStatus(false));
+
+        // PWA installation
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            if (this.elements.installBtn) {
+                this.elements.installBtn.style.display = 'flex';
+                this.elements.installBtn.addEventListener('click', () => this.installPWA());
+            }
+        });
+
+        // Welcome hint
         if (this.elements.closeWelcomeHint) {
             this.elements.closeWelcomeHint.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -231,45 +276,19 @@ class DemandSenseApp {
             });
         }
 
-        // Make the whole welcome hint clickable to trigger file upload
+        // Make welcome hint clickable to trigger file upload
         if (this.elements.welcomeHint) {
             this.elements.welcomeHint.addEventListener('click', (e) => {
-                if (!e.target.closest('#closeWelcomeHint')) {
+                if (!e.target.closest('#closeWelcomeHint') && this.elements.fileInput) {
                     this.elements.fileInput.click();
                 }
             });
         }
-
-        // Online/offline
-        window.addEventListener('online', () => this.updateOnlineStatus(true));
-        window.addEventListener('offline', () => this.updateOnlineStatus(false));
-
-        // Install PWA
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            this.deferredPrompt = e;
-            if (this.elements.installBtn) {
-                this.elements.installBtn.style.display = 'flex';
-                this.elements.installBtn.addEventListener('click', () => this.installPWA());
-            }
-        });
     }
 
-    /**
-     * Logout user - Now handled by LogoutManager in logout-modal.js
-     * This method is kept as a placeholder but no longer has any logout logic
-     * The actual logout is handled by the beautiful neon-styled modal
-     */
-    logout() {
-        // This method is intentionally left empty
-        // The logout functionality is now handled by LogoutManager class in logout-modal.js
-        // which shows a beautiful confirmation modal instead of browser's default confirm dialog
-        console.log('Logout handled by modal - no default browser dialog will appear');
-    }
-
-    /**
-     * Handle file selection and upload - NOW ALWAYS ANALYZES ANY FILE
-     */
+    // ----------------------------
+    // File & Data Management
+    // ----------------------------
     async handleFileSelect(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -285,48 +304,21 @@ class DemandSenseApp {
         }
 
         this.showToast('success', `File "${file.name}" selected`);
-        
-        // FIXED: ALWAYS analyze any uploaded file, regardless of filename
-        this.analyzeSalesFile(file);
+        await this.analyzeSalesFile(file);
     }
 
-    /**
-     * Clear selected file
-     */
     clearFile() {
         this.currentFile = null;
-        if (this.elements.fileInput) {
-            this.elements.fileInput.value = '';
-        }
-        if (this.elements.fileIndicator) {
-            this.elements.fileIndicator.style.display = 'none';
-        }
-        if (this.elements.fileName) {
-            this.elements.fileName.textContent = 'No file selected';
-        }
+        if (this.elements.fileInput) this.elements.fileInput.value = '';
+        if (this.elements.fileIndicator) this.elements.fileIndicator.style.display = 'none';
+        if (this.elements.fileName) this.elements.fileName.textContent = 'No file selected';
     }
 
-    /**
-     * Analyze uploaded sales file
-     */
     async analyzeSalesFile(file) {
         this.showLoading(true);
-
-        // Get the selected forecast period (7, 30, 90 days, 1, 5, 10 years)
-        const periodSelect = this.elements.forecastPeriod;
-        let periodValue = periodSelect ? periodSelect.value : '30';
         
-        // Convert period values for display
-        let periodDisplay = '';
-        switch(periodValue) {
-            case '7': periodDisplay = '7 days'; break;
-            case '30': periodDisplay = '30 days'; break;
-            case '90': periodDisplay = '90 days'; break;
-            case '365': periodDisplay = '1 year'; break;
-            case '1825': periodDisplay = '5 years'; break;
-            case '3650': periodDisplay = '10 years'; break;
-            default: periodDisplay = `${periodValue} days`;
-        }
+        const periodValue = this.getPeriodValue();
+        const periodDisplay = this.getPeriodDisplay(periodValue);
         
         console.log(`📊 Analyzing file "${file.name}" for ${periodDisplay} forecast...`);
         this.addMessage('bot', `📊 Analyzing your data for a ${periodDisplay} demand forecast...`);
@@ -336,58 +328,26 @@ class DemandSenseApp {
             formData.append('file', file);
             formData.append('periods', periodValue);
 
-            const response = await fetch('/api/forecast/generate', {
-                method: 'POST',
-                body: formData
-            });
-
+            const response = await fetch('/api/forecast/generate', { method: 'POST', body: formData });
             const result = await response.json();
 
             if (result.success) {
-                this.currentSessionId = result.sessionId;
-                this.forecastData = result.forecast;
-                
-                // Use products from the forecast response if available
-                if (result.products && result.products.length > 0) {
-                    this.products = result.products;
-                    console.log('Products from forecast:', this.products);
-                }
-                
-                this.displayForecast(result);
-                
-                // Generate inventory recommendations using the products from the forecast
-                await this.generateInventoryRecommendations();
-                
-                // Initialize what-if panel with forecast data
-                if (this.whatIfPanel && this.forecastData) {
-                    this.whatIfPanel.initialize(this.forecastData, this.products);
-                }
-                
-                const days = result.metadata?.forecastPeriods || 30;
-                const years = days / 365;
-                if (years >= 1) {
-                    this.showToast('success', `${years.toFixed(1)}-year strategic forecast generated`);
-                    this.addMessage('bot', `✅ ${years.toFixed(1)}-year strategic forecast generated successfully! Check the chart above for long-term projections.`);
-                } else {
-                    this.showToast('success', `${days}-day forecast generated successfully`);
-                    this.addMessage('bot', `✅ ${days}-day forecast generated successfully! Check the chart above for detailed predictions.`);
-                }
+                await this.processForecastResult(result);
+                const successMsg = this.getForecastSuccessMessage(result);
+                this.showToast('success', successMsg);
+                this.addMessage('bot', `✅ ${successMsg}! Check the chart above for detailed predictions.`);
             } else {
                 throw new Error(result.error);
             }
-
         } catch (error) {
             console.error('Analysis error:', error);
             this.showToast('error', error.message || 'Failed to generate forecast');
-            this.addMessage('bot', `❌ Failed to analyze the file: ${error.message}. Please check that your file has date and sales columns.`);
+            this.addMessage('bot', `❌ Failed to analyze: ${error.message}`);
         } finally {
             this.showLoading(false);
         }
     }
 
-    /**
-     * Analyze pasted text data
-     */
     async analyzePastedData() {
         const text = this.elements.dataInput?.value.trim();
         if (!text) {
@@ -396,18 +356,20 @@ class DemandSenseApp {
         }
 
         this.showLoading(true);
-
-        // Get the selected forecast period
-        const periodSelect = this.elements.forecastPeriod;
-        const periodValue = periodSelect ? periodSelect.value : '30';
+        const periodValue = this.getPeriodValue();
 
         try {
+            console.log('📋 Analyzing pasted data...');
+            console.log('First 100 chars:', text.substring(0, 100));
+            
+            this.addMessage('bot', `📋 Analyzing your pasted data for ${this.getPeriodDisplay(periodValue)} demand forecast...`);
+
             const response = await fetch('/api/forecast/text', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    text,
-                    periods: periodValue,
+                    text: text,
+                    periods: parseInt(periodValue),
                     sessionId: this.currentSessionId
                 })
             });
@@ -415,374 +377,164 @@ class DemandSenseApp {
             const result = await response.json();
 
             if (result.success) {
-                this.currentSessionId = result.sessionId;
-                this.forecastData = result.forecast;
+                await this.processForecastResult(result);
+                const successMsg = this.getForecastSuccessMessage(result);
+                this.showToast('success', `${successMsg} from pasted data`);
+                this.addMessage('bot', `✅ ${successMsg} from your pasted data!`);
                 
-                this.displayForecast(result);
-                await this.loadProducts();
-                await this.generateInventoryRecommendations();
-                
-                // Initialize what-if panel with forecast data
-                if (this.whatIfPanel && this.forecastData) {
-                    this.whatIfPanel.initialize(this.forecastData, this.products);
-                }
-                
-                const days = result.metadata?.forecastPeriods || 30;
-                const years = days / 365;
-                if (years >= 1) {
-                    this.showToast('success', `${years.toFixed(1)}-year strategic forecast generated from pasted data`);
-                } else {
-                    this.showToast('success', `${days}-day forecast generated from pasted data`);
+                // Clear the input after successful analysis
+                if (this.elements.dataInput) {
+                    this.elements.dataInput.value = '';
                 }
             } else {
-                throw new Error(result.error);
+                throw new Error(result.error || 'Failed to analyze pasted data');
             }
-
         } catch (error) {
             console.error('Paste analysis error:', error);
-            this.showToast('error', error.message || 'Failed to analyze pasted data');
+            this.handlePasteError(error);
         } finally {
             this.showLoading(false);
         }
     }
 
-    /**
-     * Handle forecast period change
-     */
-    handlePeriodChange() {
-        if (this.forecastData) {
-            this.regenerateForecast();
-        }
-    }
-
-    /**
-     * Regenerate forecast with new period
-     */
-    async regenerateForecast() {
-        if (!this.currentSessionId) {
-            this.showToast('warning', 'No forecast session found');
-            return;
-        }
-
-        // Get the selected period
-        const periodSelect = this.elements.forecastPeriod;
-        const periodValue = periodSelect ? periodSelect.value : '30';
+    handlePasteError(error) {
+        let errorMessage = error.message || 'Failed to analyze pasted data';
+        let userHelpMessage = '';
         
-        let periodDisplay = '';
-        switch(periodValue) {
-            case '7': periodDisplay = '7 days'; break;
-            case '30': periodDisplay = '30 days'; break;
-            case '90': periodDisplay = '90 days'; break;
-            case '365': periodDisplay = '1 year'; break;
-            case '1825': periodDisplay = '5 years'; break;
-            case '3650': periodDisplay = '10 years'; break;
-            default: periodDisplay = `${periodValue} days`;
-        }
+        // Check for common issues and provide helpful messages
+        if (errorMessage.toLowerCase().includes('date')) {
+            userHelpMessage = `
+❌ **Date Format Error**
+
+Your data has date format issues. Please ensure:
+- Dates are in YYYY-MM-DD format (e.g., 2024-01-15)
+- The date column is clearly labeled "Date"
+- No empty or invalid dates in your data
+
+**Example format:**
+\`\`\`
+Date,Sales
+2024-01-01,100
+2024-01-02,150
+2024-01-03,120
+\`\`\`
+
+Try using the sample data button to see the correct format.`;
         
-        this.showLoading(true);
-        this.addMessage('bot', `🔄 Regenerating forecast for ${periodDisplay}...`);
-
-        try {
-            const sessionResponse = await fetch(`/api/forecast/session/${this.currentSessionId}`);
-            const sessionResult = await sessionResponse.json();
-
-            if (sessionResult.success) {
-                if (this.currentFile) {
-                    const formData = new FormData();
-                    formData.append('file', this.currentFile);
-                    formData.append('periods', periodValue);
-                    
-                    const response = await fetch('/api/forecast/generate', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        this.forecastData = result.forecast;
-                        
-                        // Update products if needed
-                        if (result.products && result.products.length > 0) {
-                            this.products = result.products;
-                        }
-                        
-                        // Refresh what-if panel with new data
-                        if (this.whatIfPanel && this.forecastData) {
-                            this.whatIfPanel.initialize(this.forecastData, this.products);
-                        }
-                        
-                        this.displayForecast(result);
-                        await this.generateInventoryRecommendations();
-                        
-                        const days = result.metadata?.forecastPeriods || 30;
-                        const years = days / 365;
-                        const successMsg = years >= 1 ? 
-                            `Regenerated ${years.toFixed(1)}-year forecast` : 
-                            `Regenerated ${days}-day forecast`;
-                        this.showToast('success', successMsg);
-                        this.addMessage('bot', `✅ ${successMsg} successfully!`);
-                    } else {
-                        throw new Error(result.error);
-                    }
-                } else {
-                    this.showToast('warning', 'Original data not available for regeneration');
-                    this.addMessage('bot', '⚠️ Original data not available. Please upload the file again.');
-                }
-            }
-        } catch (error) {
-            console.error('Regenerate error:', error);
-            this.showToast('error', 'Failed to regenerate forecast');
-            this.addMessage('bot', `❌ Failed to regenerate forecast: ${error.message}`);
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
-    /**
-     * Export forecast as PDF with all analysis
-     */
-    async exportForecast() {
-        if (!this.forecastData) {
-            this.showToast('warning', 'No forecast data to export');
-            this.addMessage('bot', '⚠️ No forecast data available to export. Please upload data first.');
-            return;
-        }
-
-        this.showLoading(true);
-        this.addMessage('bot', '📄 Generating your complete PDF report...');
-
-        try {
-            // Collect all chat messages for the report
-            const messages = [];
-            const messageElements = this.elements.messagesContainer?.querySelectorAll('.message');
+            this.showToast('error', 'Invalid date format in pasted data');
             
-            if (messageElements) {
-                messageElements.forEach(msg => {
-                    const role = msg.classList.contains('user-message') ? 'user' : 'assistant';
-                    const content = msg.querySelector('.message-content')?.innerText || '';
-                    if (content) {
-                        messages.push({ role, content });
-                    }
-                });
-            }
+        } else if (errorMessage.toLowerCase().includes('sales') || errorMessage.toLowerCase().includes('numeric')) {
+            userHelpMessage = `
+❌ **Sales Data Error**
+
+Your sales column contains non-numeric values. Please ensure:
+- The sales column contains only numbers
+- The column is clearly labeled "Sales" or "sales"
+- No empty or text values in the sales column
+
+**Example format:**
+\`\`\`
+Date,Sales
+2024-01-01,100
+2024-01-02,150
+2024-01-03,120
+\`\`\`
+
+All sales values should be numbers (integers or decimals).`;
+        
+            this.showToast('error', 'Invalid sales data format');
             
-            await this.pdfExporter.exportForecast(
-                this.forecastData, 
-                this.products, 
-                this.inventoryData,
-                messages  // Pass the chat messages
-            );
+        } else if (errorMessage.toLowerCase().includes('header') || errorMessage.toLowerCase().includes('column')) {
+            userHelpMessage = `
+❌ **Column Header Error**
+
+Your data needs proper column headers. Please ensure:
+- First row contains "Date" and "Sales" as column names
+- Headers are spelled correctly (case-sensitive: Date, Sales)
+- No extra spaces or special characters in headers
+
+**Example format:**
+\`\`\`
+Date,Sales
+2024-01-01,100
+2024-01-02,150
+2024-01-03,120
+\`\`\`
+
+Copy this example and replace with your data.`;
+        
+            this.showToast('error', 'Missing or incorrect column headers');
             
-            this.showToast('success', 'Complete forecast report exported as PDF');
-            this.addMessage('bot', '✅ PDF report exported successfully! Check your downloads folder.');
-        } catch (error) {
-            console.error('Export error:', error);
-            this.showToast('error', 'Failed to export PDF');
-            this.addMessage('bot', `❌ Failed to export PDF: ${error.message}`);
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
-    /**
-     * Send message in chat
-     */
-    async sendMessage() {
-        const message = this.elements.messageInput?.value.trim();
-        if (!message) return;
-
-        this.addMessage('user', message);
-        this.elements.messageInput.value = '';
-        this.elements.messageInput.style.height = 'auto';
-
-        this.showLoading(true);
-
-        try {
-            let response;
-            
-            if (message.toLowerCase().includes('forecast') || message.toLowerCase().includes('demand')) {
-                response = await this.handleForecastQuestion(message);
-            } else if (message.toLowerCase().includes('inventory') || message.toLowerCase().includes('stock')) {
-                response = await this.handleInventoryQuestion(message);
-            } else if (message.toLowerCase().includes('scenario') || message.toLowerCase().includes('what if')) {
-                response = await this.handleScenarioQuestion(message);
-            } else {
-                response = await this.handleGeneralQuestion(message);
-            }
-
-            this.addMessage('bot', response);
-
-        } catch (error) {
-            console.error('Send message error:', error);
-            this.addMessage('bot', `Error: ${error.message}`);
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
-    /**
-     * Handle forecast questions
-     */
-    async handleForecastQuestion(question) {
-        if (!this.forecastData) {
-            return "Please upload sales data first to generate a forecast.";
-        }
-
-        const totalDemand = this.forecastData.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
-        const avgDemand = totalDemand / (this.forecastData.forecast?.length || 1);
-        const days = this.forecastData.forecast?.length || 30;
-        const years = days / 365;
-
-        if (years >= 1) {
-            return `
-**Strategic Forecast Summary (${years.toFixed(1)} Years)**
-
-📊 Total projected demand: ${Math.round(totalDemand).toLocaleString()} units
-📈 Average yearly demand: ${Math.round(totalDemand / years).toLocaleString()} units
-🎯 Confidence level: ${Math.round((this.forecastData.confidence || 0.85) * 100)}%
-
-**Strategic Insights**
-${(this.forecastData.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
-
-View the forecast chart above for detailed long-term projections.
-            `;
         } else {
-            return `
-**Demand Forecast Summary (${days} Days)**
+            userHelpMessage = `
+❌ **Analysis Failed**
 
-📊 Total predicted demand: ${Math.round(totalDemand).toLocaleString()} units
-📈 Average daily demand: ${Math.round(avgDemand).toLocaleString()} units
-🎯 Confidence level: ${Math.round((this.forecastData.confidence || 0.85) * 100)}%
+${errorMessage}
 
-**Key Insights**
-${(this.forecastData.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
+**Please check:**
+1. Your data has a "Date" column (YYYY-MM-DD format)
+2. Your data has a "Sales" column (numeric values)
+3. Data is comma-separated (CSV format)
+4. No empty rows or missing values
 
-View the forecast chart above for detailed daily predictions.
-            `;
+**Try this sample first:**
+Click the "Sample Data" button to see the correct format.`;
+        
+            this.showToast('error', 'Failed to analyze pasted data');
+        }
+        
+        this.addMessage('bot', userHelpMessage);
+    }
+
+    // ----------------------------
+    // Forecast Processing
+    // ----------------------------
+    async processForecastResult(result) {
+        this.currentSessionId = result.sessionId;
+        this.forecastData = result.forecast;
+        
+        if (result.products && result.products.length > 0) {
+            this.products = result.products;
+            console.log('✅ Products loaded:', this.products.length);
+        }
+        
+        this.displayForecast(result);
+        await this.generateInventoryRecommendations();
+        
+        if (this.whatIfPanel && this.forecastData) {
+            this.whatIfPanel.initialize(this.forecastData, this.products);
         }
     }
 
-    /**
-     * Handle inventory questions
-     */
-    async handleInventoryQuestion(question) {
-        if (!this.inventoryData) {
-            return "Please generate a forecast first to see inventory recommendations.";
-        }
-
-        const urgent = this.inventoryData.optimalOrders?.filter(o => o.urgent) || [];
-        const critical = this.inventoryData.optimalOrders?.filter(o => o.critical) || [];
-        const highRisk = this.inventoryData.stockoutRisks?.filter(r => r.risk_level === 'high') || [];
-        
-        if (urgent.length === 0 && critical.length === 0 && highRisk.length === 0) {
-            return "✅ Inventory levels look healthy. No urgent reorders or high risks detected at this time.";
-        }
-
-        let response = "⚠️ **Inventory Status**\n\n";
-        
-        if (critical.length > 0) {
-            response += `🔴 **Critical Items (Order Immediately)**\n`;
-            critical.slice(0, 3).forEach(o => {
-                response += `- ${o.product_name}: Stock ${o.current_stock}, Order ${o.recommended}\n`;
-            });
-            response += '\n';
-        }
-        
-        if (urgent.length > 0) {
-            response += `🟡 **Urgent Items (Order Soon)**\n`;
-            urgent.slice(0, 3).forEach(o => {
-                response += `- ${o.product_name}: Stock ${o.current_stock}, Order ${o.recommended}\n`;
-            });
-            response += '\n';
-        }
-        
-        if (highRisk.length > 0) {
-            response += `📈 **High Risk Items**\n`;
-            highRisk.slice(0, 3).forEach(r => {
-                response += `- ${r.product_name}: ${Math.round(r.stockout_probability * 100)}% stockout risk\n`;
-            });
-        }
-
-        response += `\nCheck the Inventory tab for complete details.`;
-        
-        return response;
-    }
-
-    /**
-     * Handle scenario questions
-     */
-    async handleScenarioQuestion(question) {
-        return `
-**What-If Scenario Analysis**
-
-You can simulate different business conditions:
-1. 📈 **Demand Shock** - Sudden increase in demand
-2. 🚚 **Supply Disruption** - Delays in supply chain
-3. 🎉 **Promotion** - Sales lift from marketing
-
-Go to the **Scenarios** tab to run simulations and see real-time impact on your inventory.
-
-Example: Try a 50% demand increase for 7 days to see stockout risks.
-        `;
-    }
-
-    /**
-     * Handle general questions
-     */
-    async handleGeneralQuestion(question) {
-        return `
-I can help you with:
-- 📊 **Demand forecasting** - Upload sales data for predictions (7 days to 10 years)
-- 📦 **Inventory optimization** - Get reorder recommendations based on your forecast
-- 🔮 **What-if scenarios** - Simulate business conditions
-- 📈 **Trend analysis** - Understand demand patterns
-
-What would you like to explore? Try asking about forecast, inventory, or scenarios.
-        `;
-    }
-
-    /**
-     * Display forecast with appropriate context
-     */
     displayForecast(result) {
-        if (this.elements.welcomeScreen) {
-            this.elements.welcomeScreen.style.display = 'none';
-        }
-
-        if (this.elements.messagesContainer) {
-            this.elements.messagesContainer.style.display = 'block';
-        }
-
+        this.hideWelcomeScreen();
+        
         const days = result.metadata?.forecastPeriods || 30;
         const years = days / 365;
-        let title;
-        
-        if (years >= 1) {
-            title = `${years.toFixed(1)}-Year Strategic Demand Forecast`;
-        } else {
-            title = `${days}-Day Demand Forecast`;
-        }
+        const title = years >= 1 ? `${years.toFixed(1)}-Year Strategic Demand Forecast` : `${days}-Day Demand Forecast`;
 
         if (this.forecastChart && result.forecast?.chartData) {
-            this.forecastChart.updateForecast(
-                result.forecast.chartData,
-                null,
-                { title }
-            );
+            this.forecastChart.updateForecast(result.forecast.chartData, null, { title });
         }
 
         this.updateForecastStats(result.forecast);
         
-        // Initialize what-if panel with forecast data
         if (this.whatIfPanel && result.forecast) {
             this.whatIfPanel.initialize(result.forecast, this.products);
         }
 
+        this.addForecastSummary(result);
+        this.saveToHistory(result);
+    }
+
+    addForecastSummary(result) {
+        const days = result.metadata?.forecastPeriods || 30;
+        const years = days / 365;
         const totalDemand = result.forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
         const avgDemand = totalDemand / days;
         
-        let summary = '';
+        let summary;
+        
         if (years >= 1) {
             summary = `
 **${years.toFixed(1)}-Year Strategic Forecast Generated**
@@ -817,13 +569,8 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         }
 
         this.addMessage('bot', summary);
-
-        this.saveToHistory(result);
     }
 
-    /**
-     * Update forecast statistics display
-     */
     updateForecastStats(forecast) {
         if (!this.elements.forecastStats) return;
 
@@ -864,9 +611,375 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         `;
     }
 
-    /**
-     * Add message to chat
-     */
+    async regenerateForecast() {
+        if (!this.currentSessionId) {
+            this.showToast('warning', 'No forecast session found');
+            return;
+        }
+
+        const periodValue = this.getPeriodValue();
+        const periodDisplay = this.getPeriodDisplay(periodValue);
+        
+        this.showLoading(true);
+        this.addMessage('bot', `🔄 Regenerating forecast for ${periodDisplay}...`);
+
+        try {
+            const sessionResponse = await fetch(`/api/forecast/session/${this.currentSessionId}`);
+            const sessionResult = await sessionResponse.json();
+
+            if (sessionResult.success && this.currentFile) {
+                const formData = new FormData();
+                formData.append('file', this.currentFile);
+                formData.append('periods', periodValue);
+                
+                const response = await fetch('/api/forecast/generate', { method: 'POST', body: formData });
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.forecastData = result.forecast;
+                    if (result.products && result.products.length > 0) this.products = result.products;
+                    
+                    if (this.whatIfPanel && this.forecastData) {
+                        this.whatIfPanel.initialize(this.forecastData, this.products);
+                    }
+                    
+                    this.displayForecast(result);
+                    await this.generateInventoryRecommendations();
+                    
+                    const successMsg = this.getForecastSuccessMessage(result);
+                    this.showToast('success', `Regenerated ${successMsg.toLowerCase()}`);
+                    this.addMessage('bot', `✅ Regenerated ${successMsg.toLowerCase()} successfully!`);
+                } else {
+                    throw new Error(result.error);
+                }
+            } else {
+                this.showToast('warning', 'Original data not available for regeneration');
+            }
+        } catch (error) {
+            console.error('Regenerate error:', error);
+            this.showToast('error', 'Failed to regenerate forecast');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    // ----------------------------
+    // Helper Methods
+    // ----------------------------
+    getPeriodValue() {
+        const periodSelect = this.elements.forecastPeriod;
+        return periodSelect ? periodSelect.value : '30';
+    }
+
+    getPeriodDisplay(periodValue) {
+        const periods = {
+            '7': '7 days',
+            '30': '30 days', 
+            '90': '90 days',
+            '365': '1 year',
+            '1825': '5 years',
+            '3650': '10 years'
+        };
+        return periods[periodValue] || `${periodValue} days`;
+    }
+
+    getForecastSuccessMessage(result) {
+        const days = result.metadata?.forecastPeriods || 30;
+        const years = days / 365;
+        return years >= 1 ? `${years.toFixed(1)}-year strategic forecast generated` : `${days}-day forecast generated`;
+    }
+
+    hideWelcomeScreen() {
+        if (this.elements.welcomeScreen) {
+            this.elements.welcomeScreen.style.display = 'none';
+        }
+        if (this.elements.messagesContainer) {
+            this.elements.messagesContainer.style.display = 'block';
+        }
+    }
+
+    handlePeriodChange() {
+        if (this.forecastData) {
+            this.regenerateForecast();
+        }
+    }
+
+    // ----------------------------
+    // Inventory Management
+    // ----------------------------
+    async generateInventoryRecommendations() {
+        if (!this.products || !this.forecastData) {
+            console.log('⚠️ Cannot generate inventory: missing products or forecast');
+            return;
+        }
+
+        this.showLoading(true);
+
+        try {
+            let salesData = [];
+            if (this.currentSessionId) {
+                try {
+                    const sessionResponse = await fetch(`/api/forecast/session/${this.currentSessionId}`);
+                    const sessionResult = await sessionResponse.json();
+                    if (sessionResult.success) {
+                        salesData = sessionResult.session.salesData || [];
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch session sales data:', e);
+                }
+            }
+
+            const response = await fetch('/api/inventory/optimize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    products: this.products,
+                    forecast: this.forecastData,
+                    salesData: salesData,
+                    sessionId: this.currentSessionId
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.inventoryData = result;
+                
+                if (this.inventoryDashboard) {
+                    this.inventoryDashboard.renderOverview({
+                        ...result,
+                        products: this.products,
+                        forecast: this.forecastData
+                    });
+                }
+
+                this.addInventorySummary(result);
+                this.showToast('success', 'Inventory optimization complete');
+            } else {
+                throw new Error(result.error || 'Failed to optimize inventory');
+            }
+        } catch (error) {
+            console.error('❌ Inventory optimization error:', error);
+            this.showToast('error', 'Failed to optimize inventory');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    addInventorySummary(result) {
+        const urgentCount = result.summary?.urgentOrders || 0;
+        const criticalCount = result.summary?.criticalOrders || 0;
+        const highRiskCount = result.summary?.highRiskItems || 0;
+
+        let message = `**Inventory Optimization Complete**\n\n`;
+        message += `📊 **Summary**\n`;
+        message += `- Total Products: ${result.summary?.totalProducts || 0}\n`;
+        message += `- Total Stock Value: $${this.formatNumber(result.summary?.totalValue || 0)}\n\n`;
+
+        if (urgentCount > 0 || criticalCount > 0 || highRiskCount > 0) {
+            message += `⚠️ **Actions Needed**\n`;
+            if (criticalCount > 0) message += `- 🔴 Critical orders: ${criticalCount}\n`;
+            if (urgentCount > 0) message += `- 🟡 Urgent orders: ${urgentCount}\n`;
+            if (highRiskCount > 0) message += `- 📈 High risk items: ${highRiskCount}\n`;
+        } else {
+            message += `✅ **All inventory levels are healthy!**\n`;
+        }
+
+        this.addMessage('bot', message);
+    }
+
+    // ----------------------------
+    // Export Functionality
+    // ----------------------------
+    async exportForecast() {
+        if (!this.forecastData) {
+            this.showToast('warning', 'No forecast data to export');
+            this.addMessage('bot', '⚠️ No forecast data available. Please upload data first.');
+            return;
+        }
+
+        this.showLoading(true);
+        this.addMessage('bot', '📄 Generating your complete PDF report...');
+
+        try {
+            const messages = this.collectChatMessages();
+            
+            await this.pdfExporter.exportForecast(
+                this.forecastData, 
+                this.products, 
+                this.inventoryData,
+                messages
+            );
+            
+            this.showToast('success', 'Complete forecast report exported as PDF');
+            this.addMessage('bot', '✅ PDF report exported successfully! Check your downloads folder.');
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showToast('error', 'Failed to export PDF');
+            this.addMessage('bot', `❌ Failed to export PDF: ${error.message}`);
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    collectChatMessages() {
+        const messages = [];
+        const messageElements = this.elements.messagesContainer?.querySelectorAll('.message');
+        
+        if (messageElements) {
+            messageElements.forEach(msg => {
+                const role = msg.classList.contains('user-message') ? 'user' : 'assistant';
+                const content = msg.querySelector('.message-content')?.innerText || '';
+                if (content) messages.push({ role, content });
+            });
+        }
+        
+        return messages;
+    }
+
+    // ----------------------------
+    // Chat Functionality
+    // ----------------------------
+    async sendMessage() {
+        const message = this.elements.messageInput?.value.trim();
+        if (!message) return;
+
+        this.addMessage('user', message);
+        this.elements.messageInput.value = '';
+        this.elements.messageInput.style.height = 'auto';
+        this.showLoading(true);
+
+        try {
+            let response;
+            const lowerMessage = message.toLowerCase();
+            
+            if (lowerMessage.includes('forecast') || lowerMessage.includes('demand')) {
+                response = await this.handleForecastQuestion(message);
+            } else if (lowerMessage.includes('inventory') || lowerMessage.includes('stock')) {
+                response = await this.handleInventoryQuestion(message);
+            } else if (lowerMessage.includes('scenario') || lowerMessage.includes('what if')) {
+                response = await this.handleScenarioQuestion(message);
+            } else {
+                response = await this.handleGeneralQuestion(message);
+            }
+
+            this.addMessage('bot', response);
+        } catch (error) {
+            console.error('Send message error:', error);
+            this.addMessage('bot', `Error: ${error.message}`);
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    handleForecastQuestion(question) {
+        if (!this.forecastData) {
+            return "Please upload sales data first to generate a forecast.";
+        }
+
+        const totalDemand = this.forecastData.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0;
+        const avgDemand = totalDemand / (this.forecastData.forecast?.length || 1);
+        const days = this.forecastData.forecast?.length || 30;
+        const years = days / 365;
+
+        if (years >= 1) {
+            return `
+**Strategic Forecast Summary (${years.toFixed(1)} Years)**
+
+📊 Total projected demand: ${Math.round(totalDemand).toLocaleString()} units
+📈 Average yearly demand: ${Math.round(totalDemand / years).toLocaleString()} units
+🎯 Confidence level: ${Math.round((this.forecastData.confidence || 0.85) * 100)}%
+
+**Strategic Insights**
+${(this.forecastData.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
+
+View the forecast chart above for detailed long-term projections.
+            `;
+        } else {
+            return `
+**Demand Forecast Summary (${days} Days)**
+
+📊 Total predicted demand: ${Math.round(totalDemand).toLocaleString()} units
+📈 Average daily demand: ${Math.round(avgDemand).toLocaleString()} units
+🎯 Confidence level: ${Math.round((this.forecastData.confidence || 0.85) * 100)}%
+
+**Key Insights**
+${(this.forecastData.insights || []).slice(0, 3).map(i => `- ${i}`).join('\n')}
+
+View the forecast chart above for detailed daily predictions.
+            `;
+        }
+    }
+
+    handleInventoryQuestion(question) {
+        if (!this.inventoryData) {
+            return "Please generate a forecast first to see inventory recommendations.";
+        }
+
+        const urgent = this.inventoryData.optimalOrders?.filter(o => o.urgent) || [];
+        const critical = this.inventoryData.optimalOrders?.filter(o => o.critical) || [];
+        const highRisk = this.inventoryData.stockoutRisks?.filter(r => r.risk_level === 'high') || [];
+        
+        if (urgent.length === 0 && critical.length === 0 && highRisk.length === 0) {
+            return "✅ Inventory levels look healthy. No urgent reorders or high risks detected at this time.";
+        }
+
+        let response = "⚠️ **Inventory Status**\n\n";
+        
+        if (critical.length > 0) {
+            response += `🔴 **Critical Items (Order Immediately)**\n`;
+            critical.slice(0, 3).forEach(o => {
+                response += `- ${o.product_name}: Stock ${o.current_stock}, Order ${o.recommended}\n`;
+            });
+            response += '\n';
+        }
+        
+        if (urgent.length > 0) {
+            response += `🟡 **Urgent Items (Order Soon)**\n`;
+            urgent.slice(0, 3).forEach(o => {
+                response += `- ${o.product_name}: Stock ${o.current_stock}, Order ${o.recommended}\n`;
+            });
+            response += '\n';
+        }
+        
+        if (highRisk.length > 0) {
+            response += `📈 **High Risk Items**\n`;
+            highRisk.slice(0, 3).forEach(r => {
+                response += `- ${r.product_name}: ${Math.round(r.stockout_probability * 100)}% stockout risk\n`;
+            });
+        }
+
+        response += `\nCheck the Inventory tab for complete details.`;
+        return response;
+    }
+
+    handleScenarioQuestion(question) {
+        return `
+**What-If Scenario Analysis**
+
+You can simulate different business conditions:
+1. 📈 **Demand Shock** - Sudden increase in demand
+2. 🚚 **Supply Disruption** - Delays in supply chain
+3. 🎉 **Promotion** - Sales lift from marketing
+
+Go to the **Scenarios** tab to run simulations and see real-time impact on your inventory.
+
+Example: Try a 50% demand increase for 7 days to see stockout risks.
+        `;
+    }
+
+    handleGeneralQuestion(question) {
+        return `
+I can help you with:
+- 📊 **Demand forecasting** - Upload sales data for predictions (7 days to 10 years)
+- 📦 **Inventory optimization** - Get reorder recommendations based on your forecast
+- 🔮 **What-if scenarios** - Simulate business conditions
+- 📈 **Trend analysis** - Understand demand patterns
+
+What would you like to explore? Try asking about forecast, inventory, or scenarios.
+        `;
+    }
+
     addMessage(role, content) {
         const messagesContainer = this.elements.messagesContainer;
         if (!messagesContainer) return;
@@ -883,9 +996,6 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    /**
-     * Format markdown text
-     */
     formatMarkdown(text) {
         return text
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -894,19 +1004,13 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
             .replace(/\n/g, '<br>');
     }
 
-    /**
-     * Save forecast to history
-     */
+    // ----------------------------
+    // History Management
+    // ----------------------------
     saveToHistory(result) {
         const days = result.metadata?.forecastPeriods || 30;
         const years = days / 365;
-        let preview;
-        
-        if (years >= 1) {
-            preview = `${years.toFixed(1)}-Year Strategic Forecast`;
-        } else {
-            preview = `${days}-Day Forecast`;
-        }
+        const preview = years >= 1 ? `${years.toFixed(1)}-Year Strategic Forecast` : `${days}-Day Forecast`;
 
         const entry = {
             id: Date.now(),
@@ -914,8 +1018,7 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
             sessionId: result.sessionId,
             forecast: {
                 total: result.forecast.forecast?.reduce((sum, f) => sum + (f.predicted || 0), 0) || 0,
-                periods: result.forecast.forecast?.length || 0
-            },
+                periods: result.forecast.forecast?.length || 0            },
             preview: preview
         };
         
@@ -929,9 +1032,6 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         this.renderHistory();
     }
 
-    /**
-     * Render history list
-     */
     renderHistory() {
         const historyList = this.elements.analysisHistory;
         if (!historyList) return;
@@ -977,19 +1077,13 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         });
     }
 
-    /**
-     * Load history item
-     */
-    loadHistoryItem(index) {
+    async loadHistoryItem(index) {
         const entry = this.analysisHistory[index];
         if (entry && entry.sessionId) {
-            this.loadSession(entry.sessionId);
+            await this.loadSession(entry.sessionId);
         }
     }
 
-    /**
-     * Load session data
-     */
     async loadSession(sessionId) {
         this.showLoading(true);
 
@@ -1007,7 +1101,6 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
                 
                 this.updateForecastStats(this.forecastData);
                 
-                // Initialize what-if panel with loaded forecast data
                 if (this.whatIfPanel && this.forecastData) {
                     this.whatIfPanel.initialize(this.forecastData, this.products);
                 }
@@ -1022,9 +1115,6 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         }
     }
 
-    /**
-     * Delete history item
-     */
     deleteHistoryItem(index) {
         this.analysisHistory.splice(index, 1);
         localStorage.setItem('forecastHistory', JSON.stringify(this.analysisHistory));
@@ -1032,9 +1122,6 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         this.showToast('success', 'Item deleted');
     }
 
-    /**
-     * Clear all history
-     */
     clearAllHistory() {
         this.analysisHistory = [];
         localStorage.setItem('forecastHistory', JSON.stringify([]));
@@ -1042,164 +1129,82 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         this.showToast('success', 'All history cleared');
     }
 
-    /**
-     * Load products from API
-     */
+    // ----------------------------
+    // Product & Sample Data
+    // ----------------------------
     async loadProducts() {
         try {
             const response = await fetch('/api/products');
             const result = await response.json();
-            
-            if (result.success) {
-                this.products = result.products;
-                console.log('Products loaded:', this.products.length);
-            }
+            if (result.success) this.products = result.products;
         } catch (error) {
             console.error('Error loading products:', error);
         }
     }
 
-    /**
-     * Load sample products
-     */
     async loadSampleProducts() {
         try {
             const response = await fetch('/api/sample/products');
             const result = await response.json();
-            
-            if (result.success) {
-                this.products = result.data;
-                console.log('Sample products loaded:', this.products.length);
-            }
+            if (result.success) this.products = result.data;
         } catch (error) {
             console.error('Error loading sample products:', error);
         }
     }
 
-    /**
-     * Generate inventory recommendations using actual forecast data
-     */
-    async generateInventoryRecommendations() {
-        if (!this.products || !this.forecastData) {
-            console.log('⚠️ Cannot generate inventory: missing products or forecast');
-            return;
-        }
-
-        this.showLoading(true);
-
-        try {
-            // Get sales data from current session if available
-            let salesData = [];
-            if (this.currentSessionId) {
-                try {
-                    const sessionResponse = await fetch(`/api/forecast/session/${this.currentSessionId}`);
-                    const sessionResult = await sessionResponse.json();
-                    if (sessionResult.success) {
-                        salesData = sessionResult.session.salesData || [];
-                        console.log('Sales data loaded:', salesData.length, 'records');
-                    }
-                } catch (e) {
-                    console.warn('Could not fetch session sales data:', e);
-                }
-            }
-
-            console.log('Sending inventory optimization request with:', {
-                products: this.products.length,
-                forecast: this.forecastData ? 'yes' : 'no',
-                salesData: salesData.length
-            });
-
-            const response = await fetch('/api/inventory/optimize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    products: this.products,
-                    forecast: this.forecastData,
-                    salesData: salesData,
-                    sessionId: this.currentSessionId
-                })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                this.inventoryData = result;
-                
-                // Update inventory dashboard with real data
-                if (this.inventoryDashboard) {
-                    this.inventoryDashboard.renderOverview({
-                        ...result,
-                        products: this.products,
-                        forecast: this.forecastData
-                    });
-                }
-
-                // Show summary in chat
-                const urgentCount = result.summary?.urgentOrders || 0;
-                const criticalCount = result.summary?.criticalOrders || 0;
-                const highRiskCount = result.summary?.highRiskItems || 0;
-
-                let inventoryMessage = `**Inventory Optimization Complete**\n\n`;
-                inventoryMessage += `📊 **Summary**\n`;
-                inventoryMessage += `- Total Products: ${result.summary?.totalProducts || 0}\n`;
-                inventoryMessage += `- Total Stock Value: $${this.formatNumber(result.summary?.totalValue || 0)}\n\n`;
-
-                if (urgentCount > 0 || criticalCount > 0 || highRiskCount > 0) {
-                    inventoryMessage += `⚠️ **Actions Needed**\n`;
-                    if (criticalCount > 0) inventoryMessage += `- 🔴 Critical orders: ${criticalCount}\n`;
-                    if (urgentCount > 0) inventoryMessage += `- 🟡 Urgent orders: ${urgentCount}\n`;
-                    if (highRiskCount > 0) inventoryMessage += `- 📈 High risk items: ${highRiskCount}\n`;
-                } else {
-                    inventoryMessage += `✅ **All inventory levels are healthy!**\n`;
-                }
-
-                this.addMessage('bot', inventoryMessage);
-                this.showToast('success', 'Inventory optimization complete');
-            } else {
-                console.error('Inventory optimization failed:', result.error);
-                this.showToast('error', result.error || 'Failed to optimize inventory');
-            }
-
-        } catch (error) {
-            console.error('❌ Inventory optimization error:', error);
-            this.showToast('error', 'Failed to optimize inventory');
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
-    /**
-     * Format number with commas
-     */
-    formatNumber(num) {
-        if (num === undefined || num === null) return '0';
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    /**
-     * Load sample data
-     */
     loadSampleData() {
-        const sampleData = `Date,Product,Sales,Revenue
-2024-01-01,Wireless Headphones,45,4495.50
-2024-01-01,Smart Watch,32,6396.80
-2024-01-02,Wireless Headphones,52,5194.80
-2024-01-02,Smart Watch,41,8195.90
-2024-01-03,Wireless Headphones,38,3796.20
-2024-01-03,Smart Watch,29,5797.10
-2024-01-04,Wireless Headphones,63,6293.70
-2024-01-04,Smart Watch,47,9395.30`;
+        const sampleData = `Date,Sales
+2024-01-01,45
+2024-01-02,52
+2024-01-03,38
+2024-01-04,63
+2024-01-05,71
+2024-01-06,49
+2024-01-07,55
+2024-01-08,68
+2024-01-09,73
+2024-01-10,82
+2024-01-11,59
+2024-01-12,64
+2024-01-13,77
+2024-01-14,85
+2024-01-15,91
+2024-01-16,68
+2024-01-17,74
+2024-01-18,88
+2024-01-19,95
+2024-01-20,102
+2024-01-21,78
+2024-01-22,84
+2024-01-23,97
+2024-01-24,105
+2024-01-25,112
+2024-01-26,88
+2024-01-27,94
+2024-01-28,108
+2024-01-29,115
+2024-01-30,122`;
 
         if (this.elements.dataInput) {
             this.elements.dataInput.value = sampleData;
+            this.showToast('success', '✅ Sample sales data loaded! Click "Analyze" to generate forecast.');
+            this.addMessage('bot', `📊 **Sample data loaded!**
+
+I've loaded 30 days of sample sales data with the correct format:
+- **Date column**: Dates in YYYY-MM-DD format
+- **Sales column**: Numeric values
+
+Click the **"Analyze"** button below to generate a forecast with this sample data.
+
+After seeing how it works, you can paste your own data following the same format.`);
+        } else {
+            this.showToast('error', 'Could not load sample data');
         }
-        
-        this.showToast('success', 'Sample sales data loaded');
     }
 
-    /**
-     * Reset analysis
-     */
+    // ----------------------------
+    // UI Management
+    // ----------------------------
     resetAnalysis() {
         this.currentSessionId = null;
         this.forecastData = null;
@@ -1222,14 +1227,10 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         }
         
         this.clearFile();
-        
         this.showToast('info', 'New analysis started');
         this.addMessage('bot', '🔄 Started a new analysis session. Upload a file or paste data to begin.');
     }
 
-    /**
-     * Switch between tabs
-     */
     switchTab(tab) {
         const tabs = ['forecast', 'inventory', 'scenario'];
         
@@ -1237,16 +1238,10 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
             const element = document.getElementById(`${t}Panel`);
             const tabElement = this.elements[`${t}Tab`];
             
-            if (element) {
-                element.style.display = t === tab ? 'block' : 'none';
-            }
-            
-            if (tabElement) {
-                tabElement.classList.toggle('active', t === tab);
-            }
+            if (element) element.style.display = t === tab ? 'block' : 'none';
+            if (tabElement) tabElement.classList.toggle('active', t === tab);
         });
 
-        // Refresh inventory data when switching to inventory tab
         if (tab === 'inventory' && this.inventoryData && this.inventoryDashboard) {
             this.inventoryDashboard.renderOverview({
                 ...this.inventoryData,
@@ -1255,15 +1250,11 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
             });
         }
         
-        // Refresh what-if panel when switching to scenario tab
         if (tab === 'scenario' && this.whatIfPanel && this.forecastData) {
             this.whatIfPanel.initialize(this.forecastData, this.products);
         }
     }
 
-    /**
-     * Toggle sidebar
-     */
     toggleSidebar() {
         const sidebar = this.elements.sidebar;
         const overlay = this.elements.sidebarOverlay;
@@ -1274,23 +1265,14 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         }
     }
 
-    /**
-     * Toggle theme
-     */
     toggleTheme() {
         this.isDarkMode = !this.isDarkMode;
         localStorage.setItem('darkMode', this.isDarkMode);
         this.applyTheme();
     }
 
-    /**
-     * Apply theme
-     */
     applyTheme() {
-        document.documentElement.setAttribute(
-            'data-theme',
-            this.isDarkMode ? 'dark' : 'light'
-        );
+        document.documentElement.setAttribute('data-theme', this.isDarkMode ? 'dark' : 'light');
         
         if (this.elements.themeToggle) {
             this.elements.themeToggle.innerHTML = this.isDarkMode
@@ -1299,49 +1281,38 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         }
     }
 
-    /**
-     * Update online status
-     */
     updateOnlineStatus(isOnline) {
         const dot = this.elements.statusIndicator?.querySelector('.status-dot');
-        if (dot) {
-            dot.className = `status-dot ${isOnline ? 'online' : 'offline'}`;
-        }
-        this.showToast(isOnline ? 'success' : 'error', 
-            isOnline ? 'Back online' : 'You are offline');
+        if (dot) dot.className = `status-dot ${isOnline ? 'online' : 'offline'}`;
+        this.showToast(isOnline ? 'success' : 'error', isOnline ? 'Back online' : 'You are offline');
     }
 
-    /**
-     * Install PWA
-     */
     async installPWA() {
         if (!this.deferredPrompt) return;
         
         this.deferredPrompt.prompt();
         const { outcome } = await this.deferredPrompt.userChoice;
         
-        if (outcome === 'accepted') {
-            this.showToast('success', 'Thanks for installing!');
-        }
+        if (outcome === 'accepted') this.showToast('success', 'Thanks for installing!');
         
         this.deferredPrompt = null;
-        if (this.elements.installBtn) {
-            this.elements.installBtn.style.display = 'none';
-        }
+        if (this.elements.installBtn) this.elements.installBtn.style.display = 'none';
     }
 
-    /**
-     * Show/hide loading overlay
-     */
+    // ----------------------------
+    // Utility Methods
+    // ----------------------------
+    formatNumber(num) {
+        if (num === undefined || num === null) return '0';
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
     showLoading(show) {
         if (this.elements.loadingOverlay) {
             this.elements.loadingOverlay.style.display = show ? 'flex' : 'none';
         }
     }
 
-    /**
-     * Show toast notification
-     */
     showToast(type, message) {
         const container = this.elements.toastContainer;
         if (!container) return;
@@ -1349,16 +1320,16 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         
-        const icon = {
+        const icons = {
             success: 'check-circle',
             error: 'exclamation-circle',
             warning: 'exclamation-triangle',
             info: 'info-circle'
-        }[type] || 'info-circle';
+        };
         
         toast.innerHTML = `
             <div class="toast-content">
-                <div class="toast-icon"><i class="fas fa-${icon}"></i></div>
+                <div class="toast-icon"><i class="fas fa-${icons[type] || 'info-circle'}"></i></div>
                 <div class="toast-message">${message}</div>
             </div>
         `;
@@ -1377,9 +1348,6 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         }, 4000);
     }
 
-    /**
-     * Check authentication
-     */
     checkAuthentication() {
         const currentUser = localStorage.getItem('currentUser');
         const currentPath = window.location.pathname;
@@ -1396,9 +1364,16 @@ Check the **Inventory** tab for stock recommendations based on this forecast.
         
         return true;
     }
+
+    // Placeholder for logout (handled by logout-modal.js)
+    logout() {
+        console.log('Logout handled by modal - no default browser dialog will appear');
+    }
 }
 
-// Initialize app when DOM is ready
+// ============================================
+// APPLICATION INITIALIZATION
+// ============================================
 document.addEventListener('DOMContentLoaded', () => {
     if (window.location.pathname !== '/login') {
         window.app = new DemandSenseApp();
