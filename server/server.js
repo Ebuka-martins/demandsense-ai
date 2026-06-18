@@ -47,7 +47,7 @@ if (fs.existsSync(envPath)) {
 }
 
 // Validate required environment variables
-const requiredEnvVars = ['GROQ_API_KEY', 'DEEPSEEK_API_KEY'];
+const requiredEnvVars = ['GROQ_API_KEY'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
