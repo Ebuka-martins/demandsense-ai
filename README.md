@@ -5,4 +5,4 @@ The project follows a modular architecture that separates frontend assets, backe
  Here is the link to the DemandSense AI Application-heroku where you can login to access the AI-powered demand forecasting and inventory optimisation platform [link](https://demandsense-ai-f26d0ae2b62b.herokuapp.com/login)
 
 
-    ![DemandSense AI](assets/images/front-page.png)
+   ![DemandSense AI](assets/images/front-page.png)
