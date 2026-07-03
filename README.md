@@ -11,6 +11,8 @@ The project follows a modular architecture that separates frontend assets, backe
 
    **DemandSense AI** is an advanced web application that leverages artificial intelligence and statistical modeling to provide accurate demand forecasting and inventory optimization for supply chain management. With its stunning neon pink/red theme, responsive design, and PWA capabilities, it offers a modern, intuitive interface for supply chain professionals to make data-driven decisions.
 
+   ## 📁 Project Structure
+
    ```
    # DemandSense AI – Project Structure
 
@@ -86,7 +88,41 @@ demandsense-ai/
 ├── README.md
 └── Procfile
 
-Directory Overview
+```
+
+## Core Features
+
+ **feature**   --- **Description** 
+ ---
+ **Data Upload**  Contains the name of the game 
+ 
+ **Data Pasting**  Copy-paste data directly into the application 
+ 
+ **Forecast Generation**  Generate short-term (7-90 days) and long-term (1-10 years) forecasts 
+ 
+ **Seasonality Detection**  Automatically detect weekly and monthly patterns 
+
+ **Confidence Intervalsd**  Upper and lower bounds with customizable confidence levels 
+ 
+ **AI Insights**  Actionable business insights from AI (Groq/DeepSeek) 
+ 
+ **Inventory Dashboard**  ABC classification, reorder recommendations, stockout risks 
+ 
+ **What-If Scenarios**  Demand shock, supply disruption, promotion simulation 
+ 
+ **PDF Export**  Export forecasts and reports as PDF 
+ 
+ **History Tracking**  View and manage previous forecast sessions 
+ 
+ **Dark/Light Theme**  Toggle between dark and light modes 
+
+
+ ---
+
+
+## Directory Overview
+
+```
 
 ### `assets/`
 
