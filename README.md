@@ -90,9 +90,9 @@ demandsense-ai/
 
 ```
 
-## Core Features
+## 🤖 Core Features
 
- **feature**   --- **Description** 
+ *feature*  and *Description* 
  ---
  **Data Upload**  Contains the name of the game 
  
