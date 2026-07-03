@@ -119,6 +119,9 @@ demandsense-ai/
 
  ---
 
+  ![what Page](assets/images/what-page.png)
+
+
 
 ## Directory Overview
 
