@@ -257,3 +257,46 @@ DemandSense AI adopts a modular full-stack architecture that separates presentat
  ![Welcome Pager](assets/images/welcome-pager.png)
 
 
+
+ ### 📂 **User Interface Features**
+
+- **Responsive Sidebar:** Navigation with collapsible menu for mobile devices
+
+- **Chat Interface:** Conversational AI assistant for demand queries
+
+- **Interactive Charts:** Visual forecasts using Chart.js with zoom and pan
+
+- **Real-time Updates:** Toast notifications for system status
+
+- **Loading States:** Animated loaders for forecast generation
+
+- **Mobile-Optimized:** Full support for all screen 
+
+
+## 🛠️ Tech Stack
+
+### Frontend
+
+| **Technology** | **Version** | **Purpose**                         |
+|:---------------|:-----------:|:------------------------------------|
+| HTML5          |      -      | Semantic markup                     |
+| CSS3           |      -      | Custom styles with CSS variables    |
+| JavaScript     |    ES6+     | Application logic                   |
+| Chart.js       |    4.5.1    | Data visualization                  |
+| Font Awesome   |    6.4.0    | Icon library                        |
+| jsPDF          |    4.2.0    | PDF generation                      |
+| html2canvas    |    1.4.1    | Screenshot capture                  |
+
+### Backend
+
+| **Technology** | **Version** | **Purpose** |
+|:--------------|:-----------:|:------------|
+| Node.js | 18.x | Runtime environment |
+| Express.js | 4.18.2 | Web framework |
+| Multer | 2.0.0 | File upload handling |
+| Chart.js | 4.5.1 | Data visualization |
+| Font Awesome | 6.4.0 | Icon library |
+| jsPDF | 4.2.0 | PDF generation |
+| html2canvas | 1.4.1 | Screenshot capture |
+
+
