@@ -408,3 +408,307 @@ npm run test
 **At least one API key is required for AI features. Without it, the app runs in mock mode.**
 
  ![environment](assets/images/environment.png)
+
+
+## AI Provider Selection
+
+The application supports two AI providers:
+
+**Groq** (default): Uses llama-3.3-70b-versatile model
+
+**DeepSeek:** Uses deepseek-chat model
+
+Set the provider in your .env file:
+
+```
+AI_PROVIDER=groq  # or deepseek
+
+```
+
+## 🚀 Running the Application
+
+ ### Development Mode
+
+ ```
+  npm run dev
+
+ ```
+ This starts the server with nodemon for auto-reloading.
+
+### Production Mode
+
+```
+npm start
+```
+### Windows Development
+```
+npm run dev:windows
+```
+
+### Access the Application
+
+Main App: http://localhost:3000
+
+Login: http://localhost:3000/login
+
+Health Check: http://localhost:3000/api/health
+
+The browser will automatically open in development mode if the open package is installed.
+
+## 🔗 API Endpoints
+  
+  ### Authentication
+
+  | **Method** | **Endpoint** | **Description** |
+|:--------------|:-----------:|:------------|
+| POST | /api/auth/login | User login |
+| POST | /api/auth/register | User registration |
+| POST | /api/auth/logout | User logout |
+| GET | /api/auth/verify | Verify token |
+
+### Forecast
+
+  | **Method** | **Endpoint** | **Description** |
+|:--------------|:-----------:|:------------|
+| POST | /api/forecast/generate | Generate forecast from file |
+| POST | /api/forecast/text | Generate forecast from pasted data |
+| GET | /api/forecast/session/:sessionId | Get forecast session |
+| DELETE | /api/forecast/session/:sessionId | Delete session |
+| GET | /api/forecast/health | System health check |
+| POST | /api/forecast/clear-cache | Clear cache |
+
+### Inventory
+
+  | **Method** | **Endpoint** | **Description** |
+|:--------------|:-----------:|:------------|
+| POST | /api/inventory/optimize | Calculate inventory metrics |
+| POST | /api/inventory/reorder | Get reorder recommendations |
+| GET | /api/inventory/health/:productId | Get product health metrics |
+| GET | /api/inventory/session/:sessionId | Get inventory session |
+| DELETE | /api/inventory/session/:sessionId | Delete session |
+
+### Products
+
+  | **Method** | **Endpoint** | **Description** |
+|:--------------|:-----------:|:------------|
+| GET | /api/products | Get all products |
+| GET | /api/products/:id | Get single product |
+| POST | /api/products | Create product |
+| PUT | /api/products/:id | Update product |
+| DELETE | /api/products/:id | Delete product |
+| GET | /api/products/category/:category | Get products by category |
+| POST | /api/products/bulk | Bulk import products |
+
+
+### Scenerios
+
+  | **Method** | **Endpoint** | **Description** |
+|:--------------|:-----------:|:------------|
+| POST | /api/scenarios/analyze | Analyze what-if scenario |
+| POST | /api/scenarios/demand-shock | Quick demand shock analysis |
+| POST | /api/scenarios/supply-disruption | Quick supply disruption analysis |
+| POST | /api/scenarios/promotion | Quick promotion analysis |
+| GET | /api/scenarios/session/:sessionId | Get scenario session |
+
+
+### Reports
+
+  | **Method** | **Endpoint** | **Description** |
+|:--------------|:-----------:|:------------|
+| POST | /api/reports/generate | Generate comprehensive report |
+| GET | /api/reports/export | Export data (CSV/JSON) |
+
+
+### System
+
+  | **Method** | **Endpoint** | **Description** |
+|:--------------|:-----------:|:------------|
+| GET | /api/health | Health check |
+| GET | /api/sample/sales | Get sample sales data |
+| GET | /api/sample/products | Get sample products |
+
+ ![forecast](assets/images/forecast.png)
+
+
+## 🏗️ Architecture
+
+ ### System Architecture Diagram
+
+ ```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Client Browser                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│  │   PWA App   │  │  Service    │  │    Cache Storage         │ │
+│  │ (index.html)│  │  Worker     │  │    (IndexedDB)          │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘ │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │   Express       │
+                    │   Server        │
+                    │  (server.js)    │
+                    └────────┬────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        │                    │                    │
+┌───────▼───────┐  ┌─────────▼─────────┐  ┌───────▼───────┐
+│   Routes      │  │   Business Logic  │  │   Data Layer  │
+│  API Layer    │  │    (Services)     │  │               │
+├───────────────┤  ├───────────────────┤  ├───────────────┤
+│ /forecast     │  │ forecast-logic.js │  │  In-memory    │
+│ /inventory    │  │ inventory-calc.js │  │    Cache      │
+│ /products     │  │ seasonality-utils │  │               │
+│ /scenarios    │  │ external-factors  │  │  Session      │
+│ /reports      │  │ prompt-templates  │  │    Storage    │
+│ /auth         │  └───────────────────┘  └───────────────┘
+└───────────────┘
+        │                    │                    │
+        └────────────────────┼────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │   External      │
+                    │   Services      │
+                    ├─────────────────┤
+                    │  Groq AI API    │
+                    │  DeepSeek API   │
+                    └─────────────────┘
+ ```
+
+ ### Request Flow
+
+   **Client Request →** Browser sends request to Express server
+
+   **Middleware →** Helmet, CORS, compression, body parsing
+
+   **Routing →** Request matched to appropriate route handler
+
+   **Business Logic →** Route calls service layer functions
+
+   **AI Integration →** Service calls AI API for insights
+
+   **Response →** Data returned to client with status
+
+
+ ## 📊 Forecasting Methodology
+
+   ### Statistical Foundation
+
+   The forecasting engine uses exponential smoothing with the following components:
+
+   **1. Level (α)**
+   Smooths the base demand level: α = 0.3
+
+   **2. Trend (β)**
+   Detects demand direction using linear regression: β = 0.1
+
+   **3. Seasonality (γ)**
+   Adjusts for weekly/monthly patterns: γ = 0.2
+
+   
+   ## Forecasting Process
+
+   ```
+   ┌─────────────────────────────────────────────────────────────┐
+│                     Input Data Validation                   │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│  │  CSV/Excel/JSON │  │  Pasted Data    │  │  Sample Data │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  Data           │
+                    │  Aggregation    │
+                    │  (by date)      │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  Frequency      │
+                    │  Detection      │
+                    │ (daily/weekly/  │
+                    │  monthly)       │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  Daily Demand   │
+                    │  Calculation    │
+                    └────────┬────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        │                    │                    │
+┌───────▼───────┐  ┌─────────▼─────────┐  ┌───────▼───────┐
+│  Trend        │  │  Seasonality      │  │  Confidence   │
+│  Calculation  │  │  Detection        │  │  Intervals    │
+│ (Regression)  │  │ (Autocorrelation) │  │  (Variance)   │
+└───────┬───────┘  └─────────┬─────────┘  └───────┬───────┘
+        │                    │                    │
+        └────────────────────┼────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  Holt-Winters   │
+                    │  Exponential    │
+                    │  Smoothing      │
+                    └────────┬────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        │                    │                    │
+┌───────▼───────┐  ┌─────────▼─────────┐  ┌───────▼───────┐
+│  Forecast      │  │  AI Insights      │  │  Chart Data   │
+│  Generation    │  │  (Qualitative)    │  │  Preparation  │
+│  (30-3650 days)│  └───────────────────┘  └───────────────┘
+└───────────────┘
+        │
+┌───────▼───────┐
+│  Response to  │
+│   Client      │
+└───────────────┘
+
+   ```
+
+## Forecast Periods
+
+  | **Period** | **Days** | **Use Case** |
+|:--------------|:-----------:|:------------|
+| Short-term | 7 | Immediate planning |
+| Medium-term | 30-90 | Monthly/quarterly planning |
+| Long-term | 365 | Annual planning |
+| Strategic | 1825-3650 | 5-10 year strategy |
+
+
+## Confidence Intervals
+
+Default confidence level: 95%
+
+Calculated from historical data variance
+
+Wider intervals for longer forecasts
+
+Coefficient of variation (CV) scaling
+
+
+## 📦 Inventory Optimization
+  
+  ### Key Metrics
+  
+  **1.Economic Order Quantity (EOQ)**
+
+  ```
+  EOQ = √(2 × Annual Demand × Ordering Cost / Holding Cost)
+
+  ```
+  **2.Reorder Point (ROP)**
+
+  ```
+  ROP = (Average Daily Demand × Lead Time) + Safety Stock
+
+  ```
+ **3.Safety Stock**
+
+ ```
+  Safety Stock = Z × σ × √(Lead Time)
+
+ ```
+ Where:
+
+Z = Service level factor (1.65 for 95%)
+
+σ = Demand standard deviation
