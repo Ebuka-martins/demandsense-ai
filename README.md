@@ -323,6 +323,14 @@ DemandSense AI adopts a modular full-stack architecture that separates presentat
 ![metric page](assets/images/metric-page.png)
 
 
+## Design
+
+ ### Color Design
+
+ ![design color](assets/images/design-color.png)
+
+
+
 ## 🔧 Installation
 
 ### Prerequisites
@@ -332,3 +340,64 @@ DemandSense AI adopts a modular full-stack architecture that separates presentat
 **npm** 9.x or higher
 
 **Git** (optional, for cloning)
+
+### Steps
+ **Clone the repository**
+ ```
+git clone https://github.com/Ebuka-martins/demandsense-ai.git
+cd demandsense-ai
+ ```
+
+**Install dependencies**
+
+```
+npm install
+```
+
+**Set up environment variables**
+Create a .env file in the root directory:
+
+```
+# AI Provider Configuration
+GROQ_API_KEY=your_groq_api_key_here
+# DEEPSEEK_API_KEY=your_deepseek_api_key_here  # Alternative provider
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# AI Provider (groq or deepseek)
+AI_PROVIDER=groq
+```
+
+**Verify installation**
+
+```
+npm run test
+```
+
+## 🚢 Deployment
+
+ ### Heroku
+```
+ heroku create your-app-name   https://demandsense-ai-f26d0ae2b62b.herokuapp.com/login
+ heroku config:set GROQ_API_KEY=your_key_here
+ git push heroku main
+
+```
+
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+
+| **Variable** | **Description** | **Required** | **Default** |
+|:--------------|:-----------:|:------------|:------------|
+| GROQ_API_KEY | Groq API Key AI insights | Yes* | - |
+| DEEPSEEK_API_KEY | DeepSeek API Key (alternative) | No | - |
+| AI_PROVIDER | 2.0.0 | AI provider: groq or deepseek | groq |
+| PORT | 0.20.2 | Server port | 3000 |
+| NODE_ENV | Environment: development or production | No | development |
+
+**At least one API key is required for AI features. Without it, the app runs in mock mode.**
