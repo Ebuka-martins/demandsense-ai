@@ -712,3 +712,22 @@ Coefficient of variation (CV) scaling
 Z = Service level factor (1.65 for 95%)
 
 σ = Demand standard deviation
+
+**3.Stockout Probability**
+
+```
+Stockout Probability = 1 / (1 + e^(1.5 × z))
+
+```
+Where z = standardized score of current stock relative to demand
+
+
+## ABC Classification
+
+| **Class** | **D% of Items** | **% of Value** | **Strategy** |
+|:--------------|:-----------:|:------------|:------------|
+| A | 20% | 80% | Tight control, frequent review |
+| B | 30% | 15% | Moderate control, periodic review |
+| C | 50% | 5% | Simple control, bulk ordering |
+
+
