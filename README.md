@@ -90,11 +90,16 @@ demandsense-ai/
 
 ```
 
+  ![login page](assets/images/login-page.png)
+
+
 ## 🤖 Core Features
 
  *feature*  and *Description* 
  ---
- **Data Upload**  Contains the name of the game 
+ **Login Page**  Sign up and add your Email Address
+
+ **Data Upload**  Contains the name of the Files 
  
  **Data Pasting**  Copy-paste data directly into the application 
  
@@ -401,3 +406,5 @@ npm run test
 | NODE_ENV | Environment: development or production | No | development |
 
 **At least one API key is required for AI features. Without it, the app runs in mock mode.**
+
+ ![environment](assets/images/environment.png)
