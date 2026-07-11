@@ -294,9 +294,41 @@ DemandSense AI adopts a modular full-stack architecture that separates presentat
 | Node.js | 18.x | Runtime environment |
 | Express.js | 4.18.2 | Web framework |
 | Multer | 2.0.0 | File upload handling |
-| Chart.js | 4.5.1 | Data visualization |
-| Font Awesome | 6.4.0 | Icon library |
-| jsPDF | 4.2.0 | PDF generation |
-| html2canvas | 1.4.1 | Screenshot capture |
+| XLSX | 0.20.2 | Excel file parsing |
+| csv-parser | 3.0.0 | CSV parsing |
+| UUID | 9.0.0 | Session management |
 
 
+### AI & Statistics
+
+| **Technology** | **Purpose** |
+|:--------------|:------------|
+| Groq API | AI-powered insights (Liama 3.3 70B) |
+| DeepSeek API | Alternative AI provider |
+| Exponential Smoothing | Statistical forecasting |
+| Linear Regression | Trend detection |
+| Holt-Winters | Seasonal adjustment |
+
+
+### DevOps & Security
+
+| **Technology** | **Purpose** |
+|:--------------|:------------|
+| Helmet | Security headers |
+| CORS | Cross-origin resource sharing |
+| Compression | Response compression |
+| dotenv | Environment variable management |
+
+
+![metric page](assets/images/metric-page.png)
+
+
+## 🔧 Installation
+
+### Prerequisites
+
+**Node.js** 18.x or higher
+
+**npm** 9.x or higher
+
+**Git** (optional, for cloning)
