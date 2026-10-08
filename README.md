@@ -731,3 +731,268 @@ Where z = standardized score of current stock relative to demand
 | C | 50% | 5% | Simple control, bulk ordering |
 
 
+## 🔮 What-If Scenarios
+
+### Supported Scenarios
+
+**1.Demand Shock**
+ 
+ Simulates sudden demand increase/decrease
+
+```
+{
+  "type": "demand_shock",
+  "parameters": {
+    "multiplier": 1.5,    // 50% increase
+    "duration": 7          // 7 days
+  }
+}
+
+```
+
+**2.Supply Distruption**
+
+Simulates supplier delays
+
+```
+{
+  "type": "supply_disruption",
+  "parameters": {
+    "delayDays": 14,       // 2 week delay
+    "capacityReduction": 0.3  // 30% reduction
+  }
+}
+
+```
+
+**3.Promotion**
+
+Simulates sales lift from promotions
+
+```
+{
+  "type": "promotion",
+  "parameters": {
+    "multiplier": 2.0,    // 2x sales
+    "duration": 3          // 3 days
+  }
+}
+
+```
+
+## 📱 Progressive Web App (PWA)
+
+### Features
+
+**Installable:** Add to home screen on any device
+
+**Offline Support:** Service worker caches static assets
+
+**Push Notifications:** Alert users about forecast updates
+
+**Background Sync:** Sync offline actions when online
+
+
+## PWA Configuration
+
+  | **File** | **Purpose** | 
+|:--------------|:-----------:|
+| manifest.json | App metadata, icons, display settings | 
+| service-worker.js | Cache management, offline support | 
+| icons/ | App icons for different sizes | 
+
+
+## Cache Strategy
+
+**HTML:** Network first, fallback to cache
+
+**Static Assets:** Cache first, stale-while-revalidate
+
+**API Calls:** Network only (no caching)
+
+**External Assets:** CDN resources with cache-first
+
+
+## 🧪 Testing
+
+### Running Tests
+
+```
+# Run all tests
+npm run test
+
+# Run forecast tests only
+npm run test:forecast
+
+# Run inventory tests only
+npm run test:inventory
+
+```
+
+### Test Coverage
+
+  | **Module** | **Tests** | **Description** |
+|:--------------|:-----------:|:------------|
+| forecast.test.js | 4 | Forecast logic, seasonality, fallback |
+| inventory.test.js | 12 | EOQ, ROP, safety stock, ABC, metrics |
+
+
+## 🚢 Deployment
+
+### Heroku Deployment
+
+The application includes a Procfile for Heroku deployment:
+
+```
+# Deploy to Heroku
+heroku create demandsense-ai
+heroku config:set GROQ_API_KEY=your_api_key
+git push heroku main
+
+```
+
+### Environment Variables for Production
+
+```
+NODE_ENV=production
+GROQ_API_KEY=your_production_api_key
+PORT=8080  # Heroku assigns this automatically
+
+```
+### Build Process
+
+```
+# Install dependencies
+npm install --production
+
+# Start server
+npm start
+
+```
+
+### 🔧 Troubleshooting
+
+**Common Issues**
+
+**1. Missing API Key**
+
+**Error:** Missing API key: GROQ_API_KEY
+
+**Solution:** Add your API key to .env file:
+
+```
+GROQ_API_KEY=your_api_key_here
+```
+
+**2. Port Already in Use**
+
+**Error:** Error: listen EADDRINUSE: address already in use :::3000
+
+**Solution:** Change the port in .env or kill the process:
+
+```
+# Kill process on port 3000
+npx kill-port 3000
+
+```
+
+**3. Upload File Size Error**
+
+**Error:** File too large
+
+**Solution:** Increase file size limit in server.js:
+
+```
+const upload = multer({
+  limits: { fileSize: 100 * 1024 * 1024 }  // 100MB
+});
+
+```
+
+**4. CORS Issues**
+
+**Error:** CORS blocked in browser
+
+**Solution:** Configure CORS in server.js:
+
+```
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://your-domain.com'],
+  credentials: true
+}));
+
+```
+
+**5. Service Worker Not Registering**
+
+**Error:** Service Worker registration failed
+
+**Solution:** Ensure the service-worker.js file is served correctly:
+
+```
+app.get('/service-worker.js', (req, res) => {
+  res.sendFile(path.join(__dirname, '../assets', 'service-worker.js'), {
+    headers: {
+      'Service-Worker-Allowed': '/',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    }
+  });
+});
+
+```
+
+### 🤝 Contributing
+
+```
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Run tests
+npm run test
+
+# Lint code
+npm run lint  # if configured
+
+# Build for production
+npm run build  # if configured
+
+```
+
+## 📄 License
+
+This project is licensed under Ebuka Martins - see below for details:
+
+```
+MIT License
+
+Copyright (c) 2026 Ebuka Martins
+
+```
+
+## 🙏 Acknowledgments
+
+**Groq** for providing the AI API
+
+**DeepSeek** for alternative AI capabilities
+
+**Chart.js** for beautiful data visualization
+
+**Font Awesome** for the icon library
+
+
+## 📞 Support
+
+**Email:** martin4best@gmail.com
+
+
+## 🔄 Version History
+
+  | **Version** | **Date** | **Changes** |
+|:--------------|:-----------:|:------------|
+| 1.00 | 2025-01-01 | Initial release |
+
+### Made with ❤️ by Ebuka Martins
+
