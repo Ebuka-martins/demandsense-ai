@@ -9,7 +9,7 @@ The project follows a modular architecture that separates frontend assets, backe
 
    ## ✨ Overview
 
-   **DemandSense AI** is an advanced web application that leverages artificial intelligence and statistical modeling to provide accurate demand forecasting and inventory optimization for supply chain management. With its stunning neon pink/red theme, responsive design, and PWA capabilities, it offers a modern, intuitive interface for supply chain professionals to make data-driven decisions.
+   **DemandSense AI** is an advanced web application that leverages artificial intelligence and statistical modeling to provide accurate demand forecasting and inventory optimization for supply chain management. With its stunning neon pink/red theme, responsive design, and PWA capabilities, it offers a modern, intuitive interface for supply chain professionals to make data-driven decisions. [Jump to Version History](#-version-history)
 
    ## 📁 Project Structure
 
@@ -996,3 +996,4 @@ Copyright (c) 2026 Ebuka Martins
 
 ### Made with ❤️ by Ebuka Martins
 
+[Back to top](#-demandsense-ai)
